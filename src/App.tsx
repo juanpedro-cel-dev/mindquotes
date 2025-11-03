@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import ZenShell from "./components/ZenShell";
 import AdBox from "./components/AdBox";
 
@@ -7,6 +8,20 @@ import quotesEN from "./data/quotes.en.json";
 
 type Quote = { text: string; author?: string };
 type Lang = "es" | "en";
+
+/** Logo con fade-up zen al montar */
+function LogoZen() {
+  return (
+    <motion.img
+      src="/logo-symbol.png"
+      alt="MindQuotes symbol"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1.2, ease: "easeOut", delay: 0.15 }}
+      className="w-24 sm:w-28 opacity-90 select-none drop-shadow-soft"
+    />
+  );
+}
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
@@ -70,19 +85,14 @@ export default function App() {
             langFading ? "opacity-0" : "opacity-100",
           ].join(" ")}
         >
-          {/* Logo dentro de la tarjeta */}
-          <img
-            src="/logo-symbol.png"
-            alt="MindQuotes symbol"
-            className="w-24 sm:w-28 opacity-90 select-none"
-          />
+          {/* Logo dentro de la tarjeta con animación fade-up */}
+          <LogoZen />
 
           <p className="max-w-prose text-sm text-teal-700/80 mt-2">
-          {lang === "es"
-             ? "Un momento de calma para seguir creando."
+            {lang === "es"
+              ? "Un momento de calma para seguir creando."
               : "A moment of calm to keep creating."}
           </p>
-
 
           {current && (
             <blockquote
