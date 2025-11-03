@@ -45,6 +45,11 @@ export type MusicCopy = {
   volumeAria: string;
   errorNoContext: string;
   errorInit: string;
+  trackLoading: string;
+  trackActive: string;
+  trackPaused: string;
+  trackSwitchOff: string;
+  trackSwitchOn: string;
 };
 
 type QuoteFilterCopy = {
@@ -61,6 +66,28 @@ type QuotesCopy = {
   allLabel: string;
   filters: QuoteFilterCopy[];
   empty: string;
+  save: string;
+  saved: string;
+  saveLogin: string;
+  favoritesTitle: string;
+  favoritesEmpty: string;
+  favoritesAction: string;
+  favoritesClose: string;
+  favoritesSubtitle: string;
+  favoritesEmptyDetail: string;
+  favoritesRemove: string;
+  focusMode: {
+    title: string;
+    description: string;
+    activate: string;
+    deactivate: string;
+    premiumNotice: string;
+  };
+  moodPrompt: {
+    question: string;
+    accept: string;
+    decline: string;
+  };
 };
 
 type AdCopy = {
@@ -116,6 +143,11 @@ export const copy: Record<Lang, AppCopy> = {
       volumeAria: "Control de volumen música zen",
       errorNoContext: "AudioContext no disponible en este navegador.",
       errorInit: "No pudimos iniciar el audio. Intenta de nuevo.",
+      trackLoading: "Cargando ambiente...",
+      trackActive: "Reproduciendo {title} · {author}",
+      trackPaused: "Ambiente pausado: {title}",
+      trackSwitchOff: "Volver al sonido generativo",
+      trackSwitchOn: "Usar música según mood",
     },
     quotes: {
       tagline: "Un momento de calma para seguir creando.",
@@ -129,7 +161,31 @@ export const copy: Record<Lang, AppCopy> = {
         { id: "motivation", label: "Motivación" },
         { id: "heartbreak", label: "Despecho suave" },
       ],
-      empty: "Pronto sumaremos más frases para este mood. Gracias por tu paciencia zen.",
+      empty:
+        "Pronto sumaremos más frases para este mood. Gracias por tu paciencia zen.",
+      save: "Guardar",
+      saved: "Guardada",
+      saveLogin: "Inicia sesión para guardar tus frases favoritas.",
+      favoritesTitle: "Tus frases favoritas",
+      favoritesEmpty: "Aún no guardas frases. Captura la primera cuando sientas el clic.",
+      favoritesAction: "Ver todas",
+      favoritesClose: "Cerrar favoritos",
+      favoritesSubtitle: "Desmárcalas cuando quieras que vuelvan al flujo zen.",
+      favoritesEmptyDetail:
+        "Cuando guardes frases, aparecerán aquí para volver a ellas sin perder la calma.",
+      favoritesRemove: "Quitar",
+      focusMode: {
+        title: "Modo focus",
+        description: "Oculta navegación y anuncios para quedarte solo con la cita y la música.",
+        activate: "Activar modo focus",
+        deactivate: "Salir de modo focus",
+        premiumNotice: "Modo focus disponible para MindQuotes Premium.",
+      },
+      moodPrompt: {
+        question: "¿Quieres acompañar este mood con música a juego?",
+        accept: "Activar música",
+        decline: "No ahora",
+      },
     },
     ad: {
       ariaLabel: "Espacio promocional MindQuotes",
@@ -174,6 +230,11 @@ export const copy: Record<Lang, AppCopy> = {
       volumeAria: "Zen music volume control",
       errorNoContext: "AudioContext is not available in this browser.",
       errorInit: "We couldn't start the audio. Please try again.",
+      trackLoading: "Loading ambience...",
+      trackActive: "Now playing {title} · {author}",
+      trackPaused: "Ambience paused: {title}",
+      trackSwitchOff: "Return to generative sound",
+      trackSwitchOn: "Use mood-based music",
     },
     quotes: {
       tagline: "A moment of calm to keep creating.",
@@ -187,7 +248,31 @@ export const copy: Record<Lang, AppCopy> = {
         { id: "motivation", label: "Motivation" },
         { id: "heartbreak", label: "Heartbreak & healing" },
       ],
-      empty: "We will add more quotes for this mood soon. Thanks for staying zen.",
+      empty:
+        "We will add more quotes for this mood soon. Thanks for staying zen.",
+      save: "Save",
+      saved: "Saved",
+      saveLogin: "Sign in to keep your favorite quotes close.",
+      favoritesTitle: "Your favorite quotes",
+      favoritesEmpty: "No favorites yet. Save the first one that resonates.",
+      favoritesAction: "View all",
+      favoritesClose: "Close favorites",
+      favoritesSubtitle: "Unsave anytime to let them flow back into the stream.",
+      favoritesEmptyDetail:
+        "Once you save quotes, they will live here so you can revisit them without breaking the calm.",
+      favoritesRemove: "Remove",
+      focusMode: {
+        title: "Focus mode",
+        description: "Hide navigation and ads to stay with the quote and the music.",
+        activate: "Enable focus mode",
+        deactivate: "Leave focus mode",
+        premiumNotice: "Focus mode is available for MindQuotes Premium.",
+      },
+      moodPrompt: {
+        question: "Want to pair this mood with matching music?",
+        accept: "Play ambience",
+        decline: "Not now",
+      },
     },
     ad: {
       ariaLabel: "MindQuotes promotional space",

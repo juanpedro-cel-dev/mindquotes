@@ -5,7 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MusicCopy } from "../i18n/copy";
+import type { MusicCopy, QuoteCategory } from "../i18n/copy";
+import { tracksByMood, type MoodTrack } from "../audio/tracks";
 
 type StoredMusicPrefs = {
   volume: number;
@@ -26,16 +27,38 @@ const clamp = (value: number, min: number, max: number) =>
 
 type MusicPlayerProps = {
   copy: MusicCopy;
+  trackMood: QuoteCategory | null;
+  autoPlayMood: QuoteCategory | null;
+  onAutoPlayConsumed?: () => void;
+  onDisableTrack: () => void;
 };
 
-export default function MusicPlayer({ copy }: MusicPlayerProps) {
+export default function MusicPlayer({
+  copy,
+  trackMood,
+  autoPlayMood,
+  onAutoPlayConsumed,
+  onDisableTrack,
+}: MusicPlayerProps) {
   const contextRef = useRef<AudioContext | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const sourcesRef = useRef<ActiveSource[]>([]);
+  const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const activeTrackMoodRef = useRef<QuoteCategory | null>(null);
+
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rememberedPlay, setRememberedPlay] = useState(false);
   const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
+  const [trackLoadingMood, setTrackLoadingMood] =
+    useState<QuoteCategory | null>(null);
+  const [activeTrackMood, setActiveTrackMood] =
+    useState<QuoteCategory | null>(null);
+  const [trackError, setTrackError] = useState<string | null>(null);
+
+  const trackInfo: MoodTrack | null = trackMood
+    ? tracksByMood[trackMood]
+    : null;
 
   // Carga preferencias previas
   useEffect(() => {
@@ -65,6 +88,11 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }, [isPlaying, volume]);
 
+  const updateActiveTrack = useCallback((mood: QuoteCategory | null) => {
+    setActiveTrackMood(mood);
+    activeTrackMoodRef.current = mood;
+  }, []);
+
   const ensureContext = useCallback(async () => {
     setErrorKey(null);
     try {
@@ -92,20 +120,25 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
     }
   }, [volume]);
 
-  const fadeStopSources = useCallback((immediate = false) => {
-    const ctx = contextRef.current;
-    sourcesRef.current.forEach((node) => {
-      try {
-        node.stop();
-      } catch {
-        // evitar romper la UX si alguna fuente ya terminó
+  const fadeStopSources = useCallback(
+    (immediate = false) => {
+      const ctx = contextRef.current;
+      sourcesRef.current.forEach((node) => {
+        try {
+          node.stop();
+        } catch {
+          // evitar romper la UX si alguna fuente ya terminó
+        }
+      });
+      sourcesRef.current = [];
+      updateActiveTrack(null);
+      setIsPlaying(false);
+      if (immediate && ctx) {
+        void ctx.suspend();
       }
-    });
-    sourcesRef.current = [];
-    if (immediate && ctx) {
-      void ctx.suspend();
-    }
-  }, []);
+    },
+    [updateActiveTrack]
+  );
 
   const buildAmbientScene = useCallback(
     (ctx: AudioContext, master: GainNode) => {
@@ -226,21 +259,102 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
     master.gain.setTargetAtTime(volume, ctx.currentTime, 0.6);
     fadeStopSources();
     buildAmbientScene(ctx, master);
+    updateActiveTrack(null);
+    setIsPlaying(true);
+    setRememberedPlay(true);
     return true;
-  }, [buildAmbientScene, ensureContext, fadeStopSources, volume]);
+  }, [
+    buildAmbientScene,
+    ensureContext,
+    fadeStopSources,
+    updateActiveTrack,
+    volume,
+  ]);
+
+  const loadTrackBuffer = useCallback(
+    async (track: MoodTrack): Promise<AudioBuffer | null> => {
+      if (bufferCacheRef.current.has(track.src)) {
+        return bufferCacheRef.current.get(track.src)!;
+      }
+      setTrackLoadingMood(track.mood);
+      setTrackError(null);
+      try {
+        const ctx = await ensureContext();
+        if (!ctx) return null;
+        const response = await fetch(track.src);
+        if (!response.ok) throw new Error("track fetch failed");
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        bufferCacheRef.current.set(track.src, audioBuffer);
+        return audioBuffer;
+      } catch {
+        setTrackError(copy.errorInit);
+        return null;
+      } finally {
+        setTrackLoadingMood((current) =>
+          current === track.mood ? null : current
+        );
+      }
+    },
+    [copy.errorInit, ensureContext]
+  );
+
+  const playTrackBuffer = useCallback(
+    async (buffer: AudioBuffer, mood: QuoteCategory) => {
+      const ctx = await ensureContext();
+      if (!ctx || !gainRef.current) return false;
+      fadeStopSources();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(gainRef.current);
+      const startTime = ctx.currentTime + 0.08;
+      source.start(startTime);
+      const stop = () => {
+        const now = ctx.currentTime;
+        try {
+          gainRef.current?.gain.setTargetAtTime(0, now, 0.5);
+          source.stop(now + 0.6);
+        } catch {
+          /* noop */
+        }
+        source.disconnect();
+      };
+      sourcesRef.current = [{ stop }];
+      updateActiveTrack(mood);
+      setIsPlaying(true);
+      setRememberedPlay(true);
+      const now = ctx.currentTime;
+      gainRef.current.gain.cancelScheduledValues(now);
+      gainRef.current.gain.setTargetAtTime(volume, now, 0.6);
+      return true;
+    },
+    [ensureContext, fadeStopSources, updateActiveTrack, volume]
+  );
 
   const handleTogglePlayback = useCallback(async () => {
     if (isPlaying) {
       fadeStopSources();
-      setIsPlaying(false);
       return;
     }
-    const started = await startAmbient();
-    if (started) {
-      setIsPlaying(true);
-      setRememberedPlay(true);
+
+    if (trackInfo) {
+      const buffer = await loadTrackBuffer(trackInfo);
+      if (buffer) {
+        const started = await playTrackBuffer(buffer, trackInfo.mood);
+        if (started) return;
+      }
     }
-  }, [fadeStopSources, isPlaying, startAmbient]);
+
+    await startAmbient();
+  }, [
+    fadeStopSources,
+    isPlaying,
+    loadTrackBuffer,
+    playTrackBuffer,
+    startAmbient,
+    trackInfo,
+  ]);
 
   const handleVolumeChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -265,12 +379,114 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
     };
   }, [fadeStopSources]);
 
+  useEffect(() => {
+    setTrackError(null);
+  }, [trackMood]);
+
+  useEffect(() => {
+    if (!trackMood && activeTrackMoodRef.current) {
+      fadeStopSources();
+    }
+  }, [trackMood, fadeStopSources]);
+
+  useEffect(() => {
+    if (!autoPlayMood || autoPlayMood !== trackMood) {
+      return;
+    }
+    if (isPlaying && activeTrackMoodRef.current === trackMood) {
+      onAutoPlayConsumed?.();
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      if (!trackInfo) return;
+      const buffer = await loadTrackBuffer(trackInfo);
+      if (cancelled || !buffer) return;
+      await playTrackBuffer(buffer, trackInfo.mood);
+    };
+
+    run().finally(() => {
+      if (!cancelled) {
+        onAutoPlayConsumed?.();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    autoPlayMood,
+    trackMood,
+    isPlaying,
+    trackInfo,
+    loadTrackBuffer,
+    playTrackBuffer,
+    onAutoPlayConsumed,
+  ]);
+
+  const handleSwitchToSynth = useCallback(async () => {
+    const resumeAfter = isPlaying && activeTrackMoodRef.current === trackMood;
+    fadeStopSources();
+    onDisableTrack();
+    if (resumeAfter) {
+      await startAmbient();
+    }
+  }, [
+    fadeStopSources,
+    isPlaying,
+    onDisableTrack,
+    startAmbient,
+    trackMood,
+  ]);
+
   const volumeLabel = useMemo(() => Math.round(volume * 100), [volume]);
-  const description = isPlaying
-    ? copy.descPlaying
-    : rememberedPlay
-    ? copy.descResume
-    : copy.descIdle;
+
+  const formatTrackLabel = useCallback(
+    (template: string, track: MoodTrack) =>
+      template
+        .replace("{title}", track.title)
+        .replace("{author}", track.author),
+    []
+  );
+
+  const description = useMemo(() => {
+    if (trackInfo) {
+      if (trackLoadingMood === trackInfo.mood) {
+        return copy.trackLoading;
+      }
+      if (trackError) {
+        return trackError;
+      }
+      if (activeTrackMood === trackInfo.mood) {
+        return isPlaying
+          ? formatTrackLabel(copy.trackActive, trackInfo)
+          : formatTrackLabel(copy.trackPaused, trackInfo);
+      }
+    }
+    if (isPlaying) {
+      return copy.descPlaying;
+    }
+    if (rememberedPlay) {
+      return copy.descResume;
+    }
+    return copy.descIdle;
+  }, [
+    activeTrackMood,
+    copy.trackActive,
+    copy.trackLoading,
+    copy.trackPaused,
+    copy.descIdle,
+    copy.descPlaying,
+    copy.descResume,
+    formatTrackLabel,
+    isPlaying,
+    rememberedPlay,
+    trackError,
+    trackInfo,
+    trackLoadingMood,
+  ]);
+
   const buttonLabel = isPlaying ? copy.pause : copy.play;
   const errorMessage =
     errorKey === "noContext"
@@ -286,7 +502,9 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-teal-700/70">
             {copy.title}
           </p>
-          <p className="mt-1 text-sm text-teal-800/85">{description}</p>
+          <p className="mt-1 text-sm text-teal-800/85" aria-live="polite">
+            {description}
+          </p>
         </div>
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
@@ -326,6 +544,18 @@ export default function MusicPlayer({ copy }: MusicPlayerProps) {
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {trackInfo && (
+          <button
+            type="button"
+            onClick={handleSwitchToSynth}
+            className="inline-flex items-center justify-center rounded-full border border-teal-200/70 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+          >
+            {copy.trackSwitchOff}
+          </button>
+        )}
       </div>
 
       {errorMessage && (
