@@ -1,0 +1,23 @@
+{
+  "name": "MindQuotes",
+  "short_name": "MindQuotes",
+  "description": "Calma, foco y constancia.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e6fff3",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/logo-mindquotes.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-mindquotes.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
