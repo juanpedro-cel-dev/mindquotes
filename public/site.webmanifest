@@ -8,13 +8,13 @@
   "theme_color": "#0f766e",
   "icons": [
     {
-      "src": "/logo-mindquotes.png",
-      "sizes": "192x192",
+      "src": "/logo-symbol.png",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/logo-mindquotes.png",
+      "src": "/logo-symbol.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
