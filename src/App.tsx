@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import ZenShell from "./components/ZenShell";
 import AdBox from "./components/AdBox";
 import MusicPlayer from "./components/MusicPlayer";
+import FeedbackPage from "./components/FeedbackPage";
+import FavoritesPage from "./components/FavoritesPage";
+import JournalPage from "./components/JournalPage";
 import {
   useUser,
   createFavoriteId,
@@ -62,7 +65,33 @@ export default function App() {
     const saved = localStorage.getItem("mq_lang");
     return saved === "en" || saved === "es" ? (saved as Lang) : "es";
   });
-  const { user, login, logout, togglePremium, toggleFavorite, setFocusMode } =
+  const resolveViewFromHash = (hash: string): "quotes" | "favorites" | "journal" | "feedback" => {
+    switch (hash) {
+      case "#/favorites":
+        return "favorites";
+      case "#/journal":
+        return "journal";
+      case "#/feedback":
+        return "feedback";
+      default:
+        return "quotes";
+    }
+  };
+
+  const [view, setView] = useState<"quotes" | "favorites" | "journal" | "feedback">(() => {
+    if (typeof window === "undefined") return "quotes";
+    return resolveViewFromHash(window.location.hash);
+  });
+  const {
+    user,
+    register,
+    login,
+    logout,
+    togglePremium,
+    toggleFavorite,
+    setFocusMode,
+    submitFeedback,
+  } =
     useUser();
   const [category, setCategory] = useState<QuoteFilter>(() => {
     if (typeof window === "undefined") return "all";
@@ -75,8 +104,12 @@ export default function App() {
   const [lastText, setLastText] = useState<string | null>(null);
   const [fading, setFading] = useState(false);
   const [langFading, setLangFading] = useState(false);
-  const [nameDraft, setNameDraft] = useState(user?.name ?? "");
-  const [premiumDraft, setPremiumDraft] = useState(user?.premium ?? false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [nameDraft, setNameDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+  const [passwordDraft, setPasswordDraft] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authInfo, setAuthInfo] = useState<string | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [selectedTrackMood, setSelectedTrackMood] =
     useState<QuoteCategory | null>(null);
@@ -103,6 +136,30 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("mq_lang", lang);
   }, [lang]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const syncFromHash = () => {
+      setView(resolveViewFromHash(window.location.hash));
+    };
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const targetHash =
+      view === "favorites"
+        ? "#/favorites"
+        : view === "journal"
+        ? "#/journal"
+        : view === "feedback"
+        ? "#/feedback"
+        : "#/";
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+  }, [view]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -136,9 +193,12 @@ export default function App() {
   }, [filteredQuotes]);
 
   useEffect(() => {
-    setNameDraft(user?.name ?? "");
-    setPremiumDraft(user?.premium ?? false);
-    if (!user) {
+    if (user) {
+      setAuthMode("login");
+      setAuthError(null);
+      setAuthInfo(null);
+      setPasswordDraft("");
+    } else {
       setFavoritesOpen(false);
     }
   }, [user]);
@@ -148,12 +208,6 @@ export default function App() {
       setFocusMode(false);
     }
   }, [focusMode, setFocusMode, user]);
-
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!nameDraft.trim()) return;
-    login(nameDraft, premiumDraft);
-  };
 
   const nextQuote = () => {
     if (!filteredQuotes.length) return;
@@ -176,10 +230,66 @@ export default function App() {
 
   const t = copy[lang];
   const filters = t.quotes.filters;
+  const navItems = t.shell.nav;
+  const activeNavId = view;
   const filterOptions: Array<{ id: QuoteFilter; label: string }> = [
     { id: "all", label: t.quotes.allLabel },
     ...filters,
   ];
+  const handleNavigate = (id: string) => {
+    const nextView = id === "favorites" || id === "journal" || id === "feedback" ? id : "quotes";
+    setView(nextView);
+    if (nextView !== "quotes") {
+      setFavoritesOpen(false);
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+  const shellProps = {
+    subtitle: t.shell.subtitle,
+    navItems,
+    activeNavId,
+    onNavigate: handleNavigate,
+    language: t.shell.language,
+    onToggleLanguage: toggleLang,
+    footerNote: t.shell.footer,
+    navAria: t.shell.navAria,
+    logoAlt: t.shell.logoAlt,
+    focusMode: view === "quotes" ? focusMode : false,
+    reduceMotion: prefersReducedMotion,
+  } as const;
+  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthInfo(null);
+
+    const emailValue = emailDraft.trim();
+    const passwordValue = passwordDraft.trim();
+    const nameValue = nameDraft.trim();
+
+    try {
+      if (authMode === "login") {
+        if (!emailValue || !passwordValue) return;
+        await login({ email: emailValue, password: passwordValue });
+        setPasswordDraft("");
+      } else {
+        if (!emailValue || !passwordValue || !nameValue) return;
+        const result = await register({
+          name: nameValue,
+          email: emailValue,
+          password: passwordValue,
+        });
+        setPasswordDraft("");
+        if (result.verificationRequired) {
+          setAuthInfo(t.login.verificationEmail);
+        }
+      }
+    } catch (error: unknown) {
+      console.error("[App] auth submit failed:", error);
+      setAuthError(t.login.errors.generic);
+    }
+  };
   const hasQuotes = filteredQuotes.length > 0;
   const categoryLabelMap = useMemo(
     () => new Map(filters.map(({ id, label }) => [id, label])),
@@ -189,6 +299,13 @@ export default function App() {
     user?.favorites.slice(-FAVORITES_PREVIEW_LIMIT).reverse() ?? [];
   const totalFavorites = user?.favorites.length ?? 0;
   const favoritesList = user ? [...user.favorites].reverse() : [];
+  const journalStorageKey = useMemo(() => {
+    if (!user) return null;
+    const base = user.id
+      ? user.id
+      : user.name.trim().toLowerCase().replace(/\s+/g, "_");
+    return `mq_journal_${base}`;
+  }, [user]);
 
   const currentFavoriteId =
     current && user
@@ -278,18 +395,53 @@ export default function App() {
     ? { opacity: 1, y: 0 }
     : { opacity: 0, y: 18 };
 
+  if (view === "feedback") {
+    return (
+      <ZenShell {...shellProps}>
+        <FeedbackPage
+          copy={t.feedback}
+          onSubmit={submitFeedback}
+          onBack={() => handleNavigate("quotes")}
+          reduceMotion={prefersReducedMotion}
+          userName={user?.name}
+          userEmail={user?.email}
+        />
+      </ZenShell>
+    );
+  }
+
+  if (view === "favorites") {
+    return (
+      <ZenShell {...shellProps}>
+        <FavoritesPage
+          favorites={user?.favorites ?? []}
+          copy={t.favoritesPage}
+          categoryOptions={filters}
+          onRemove={(favorite) => {
+            void toggleFavorite(favorite);
+          }}
+          isAuthenticated={Boolean(user)}
+        />
+      </ZenShell>
+    );
+  }
+
+  if (view === "journal") {
+    return (
+      <ZenShell {...shellProps}>
+        <JournalPage
+          copy={t.journalPage}
+          storageKey={journalStorageKey}
+          reduceMotion={prefersReducedMotion}
+          lang={lang}
+          userName={user?.name}
+        />
+      </ZenShell>
+    );
+  }
+
   return (
-    <ZenShell
-      subtitle={t.shell.subtitle}
-      navItems={t.shell.nav}
-      language={t.shell.language}
-      onToggleLanguage={toggleLang}
-      footerNote={t.shell.footer}
-      navAria={t.shell.navAria}
-      logoAlt={t.shell.logoAlt}
-      focusMode={focusMode}
-      reduceMotion={prefersReducedMotion}
-    >
+    <ZenShell {...shellProps}>
       <section className="mt-12 sm:mt-14 space-y-6">
         {user ? (
           <motion.div
@@ -416,49 +568,150 @@ export default function App() {
             initial={primaryInitial}
             animate={{ opacity: 1, y: 0 }}
             transition={cardTransition}
-            onSubmit={handleLogin}
-            className="rounded-3xl border border-white/70 bg-white/55 backdrop-blur-xl shadow-[0_8px_30px_rgba(20,73,63,0.08)] px-6 py-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
+            onSubmit={handleAuthSubmit}
+            className="flex flex-col gap-6 rounded-3xl border border-white/70 bg-white/55 px-6 py-6 shadow-[0_8px_30px_rgba(20,73,63,0.08)] backdrop-blur-xl sm:flex-row sm:items-start sm:justify-between"
           >
-            <div className="w-full sm:max-w-xs">
-              <label
-                htmlFor="user-name"
-                className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
-              >
-                {t.login.nameLabel}
-              </label>
-              <input
-                id="user-name"
-                name="user-name"
-                value={nameDraft}
-                onChange={(event) => setNameDraft(event.currentTarget.value)}
-                placeholder={t.login.placeholder}
-                className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/80 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
-              />
+            <div className="flex w-full flex-col gap-4 sm:max-w-md">
+              <div className="inline-flex w-max items-center gap-1 rounded-full bg-white/80 p-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-teal-700/70 shadow-inner shadow-white/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError(null);
+                    setAuthInfo(null);
+                  }}
+                  className={`rounded-full px-4 py-1.5 transition ${
+                    authMode === "login"
+                      ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
+                      : "text-teal-700/70 hover:text-teal-800"
+                  }`}
+                >
+                  {t.login.modeLogin}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("register");
+                    setAuthError(null);
+                    setAuthInfo(null);
+                  }}
+                  className={`rounded-full px-4 py-1.5 transition ${
+                    authMode === "register"
+                      ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
+                      : "text-teal-700/70 hover:text-teal-800"
+                  }`}
+                >
+                  {t.login.modeRegister}
+                </button>
+              </div>
+
+              <h2 className="text-base font-semibold text-teal-900">
+                {t.login.title}
+              </h2>
+
+              <div className="space-y-4">
+                {authMode === "register" && (
+                  <div>
+                    <label
+                      htmlFor="auth-name"
+                      className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
+                    >
+                      {t.login.nameLabel}
+                    </label>
+                    <input
+                      id="auth-name"
+                      name="auth-name"
+                      value={nameDraft}
+                      onChange={(event) =>
+                        setNameDraft(event.currentTarget.value)
+                      }
+                      placeholder={t.login.namePlaceholder}
+                      className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="auth-email"
+                    className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
+                  >
+                    {t.login.emailLabel}
+                  </label>
+                  <input
+                    id="auth-email"
+                    name="auth-email"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(event) =>
+                      setEmailDraft(event.currentTarget.value)
+                    }
+                    placeholder={t.login.emailPlaceholder}
+                    className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="auth-password"
+                    className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
+                  >
+                    {t.login.passwordLabel}
+                  </label>
+                  <input
+                    id="auth-password"
+                    name="auth-password"
+                    type="password"
+                    value={passwordDraft}
+                    onChange={(event) =>
+                      setPasswordDraft(event.currentTarget.value)
+                    }
+                    placeholder={t.login.passwordPlaceholder}
+                    className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+                  />
+                  <p className="mt-1 text-xs text-teal-700/60">
+                    {t.login.passwordHint}
+                  </p>
+                </div>
+              </div>
+
+              {authError && (
+                <p className="text-sm text-rose-500">{authError}</p>
+              )}
+              {authInfo && (
+                <p className="text-sm text-teal-700">{authInfo}</p>
+              )}
             </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-              <label
-                htmlFor="user-premium"
-                className="inline-flex items-center gap-3 text-sm text-teal-800/85"
-              >
-                <input
-                  id="user-premium"
-                  type="checkbox"
-                  checked={premiumDraft}
-                  onChange={(event) =>
-                    setPremiumDraft(event.currentTarget.checked)
-                  }
-                  className="h-5 w-5 rounded-md border border-teal-300/80 bg-white/90 text-teal-600 accent-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-                />
-                <span>{t.login.premiumLabel}</span>
-              </label>
-
+            <div className="flex w-full flex-col gap-3 sm:max-w-[200px]">
               <button
                 type="submit"
                 className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!nameDraft.trim()}
+                disabled={
+                  authMode === "login"
+                    ? !emailDraft.trim() || !passwordDraft.trim()
+                    : !nameDraft.trim() ||
+                      !emailDraft.trim() ||
+                      passwordDraft.trim().length < 6
+                }
               >
-                {t.login.submit}
+                {authMode === "login"
+                  ? t.login.submitLogin
+                  : t.login.submitRegister}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextMode = authMode === "login" ? "register" : "login";
+                  setAuthMode(nextMode);
+                  setAuthError(null);
+                  setAuthInfo(null);
+                }}
+                className="text-xs font-semibold text-teal-700/80 underline-offset-2 hover:underline"
+              >
+                {authMode === "login"
+                  ? t.login.switchToRegister
+                  : t.login.switchToLogin}
               </button>
             </div>
           </motion.form>

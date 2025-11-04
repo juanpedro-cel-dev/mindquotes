@@ -9,7 +9,9 @@ type LanguageControl = {
 type ZenShellProps = {
   title?: string;
   subtitle: string;
-  navItems: string[];
+  navItems: Array<{ id: string; label: string }>;
+  activeNavId?: string;
+  onNavigate?: (id: string) => void;
   language: LanguageControl;
   onToggleLanguage: () => void;
   footerNote: string;
@@ -24,6 +26,8 @@ export default function ZenShell({
   title = "MindQuotes",
   subtitle,
   navItems,
+  activeNavId,
+  onNavigate,
   language,
   onToggleLanguage,
   footerNote,
@@ -81,15 +85,24 @@ export default function ZenShell({
                 aria-label={navAria}
                 className="flex items-center gap-3 text-teal-800/85 text-sm sm:text-base"
               >
-                {navItems.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className="px-3 py-1.5 rounded-2xl border border-transparent bg-white/20 transition-all duration-200 hover:bg-white/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:translate-y-[1px]"
-                  >
-                    {item}
-                  </button>
-                ))}
+                {navItems.map((item) => {
+                  const active = item.id === activeNavId;
+                  const baseClass =
+                    "px-3 py-1.5 rounded-2xl border transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:translate-y-[1px]";
+                  const stateClass = active
+                    ? "border-teal-500/70 bg-white/70 text-teal-900 shadow-md"
+                    : "border-transparent bg-white/20 hover:bg-white/50 hover:shadow-md";
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onNavigate?.(item.id)}
+                      className={`${baseClass} ${stateClass}`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
               </nav>
             )}
             <button
