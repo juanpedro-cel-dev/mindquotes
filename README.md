@@ -29,6 +29,8 @@ npm run preview
 Create the tables (recommended: enable RLS and policies below; otherwise keep RLS disabled while you iterate):
 
 ```sql
+create extension if not exists "moddatetime" with schema extensions;
+
 create table profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique,
@@ -56,15 +58,34 @@ create table feedback (
   created_at timestamptz not null default now()
 );
 
+create table journal_entries (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references profiles(id) on delete cascade,
+  title text,
+  content text not null check (char_length(content) <= 4000),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create trigger if not exists set_journal_updated_at
+  before update on journal_entries
+  for each row
+  execute procedure extensions.moddatetime(updated_at);
+
 -- Optional but recommended if you enable RLS:
 alter table profiles enable row level security;
 alter table favorites enable row level security;
 alter table feedback enable row level security;
+alter table journal_entries enable row level security;
 
 drop policy if exists "profiles_select_own" on profiles;
 drop policy if exists "profiles_upsert_own" on profiles;
 drop policy if exists "favorites_full_access_owner" on favorites;
 drop policy if exists "feedback_insert_any" on feedback;
+drop policy if exists "journal_select_own" on journal_entries;
+drop policy if exists "journal_insert_own" on journal_entries;
+drop policy if exists "journal_update_own" on journal_entries;
+drop policy if exists "journal_delete_own" on journal_entries;
 
 create policy "profiles_select_own" on profiles
   for select using (auth.uid() = id);
@@ -78,6 +99,19 @@ create policy "favorites_full_access_owner" on favorites
 
 create policy "feedback_insert_any" on feedback
   for insert with check (true);
+
+create policy "journal_select_own" on journal_entries
+  for select using (auth.uid() = profile_id);
+
+create policy "journal_insert_own" on journal_entries
+  for insert with check (auth.uid() = profile_id);
+
+create policy "journal_update_own" on journal_entries
+  for update using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id);
+
+create policy "journal_delete_own" on journal_entries
+  for delete using (auth.uid() = profile_id);
 ```
 
 Environment variables (`.env`):
@@ -104,8 +138,9 @@ Auth settings:
 
 ### Diario zen
 
-- `/#/journal` permite escribir entradas rápidas (título opcional + texto de hasta 800 caracteres). El contenido vive en `localStorage`, separado por usuario (`mq_journal_<profile_id>` o el nombre de perfil si no hay id).
-- Si en el futuro necesitas sincronizarlo con Supabase, crea una tabla `journal_entries` y migra los datos desde ese almacenamiento local.
+- `/#/journal` permite escribir entradas rápidas (título opcional + texto de hasta 800 caracteres).
+- Si el usuario ha iniciado sesión, las entradas se guardan en la tabla `journal_entries` y quedan disponibles en cualquier dispositivo.
+- Sin sesión, las notas se almacenan localmente en `localStorage` (`mq_journal_<identificador>`), y se sincronizan la próxima vez que el usuario inicie sesión.
 
 ### Audio assets
 
@@ -126,7 +161,7 @@ public/audio/heartbreak-deep-relaxation.mp3
 5. Build: `npm run build` passes and bundles under `dist/` look correct.
 6. Feedback: abre `/#/feedback`, envía una sugerencia y confirma que aparece en la tabla `feedback` de Supabase.
 7. Favoritos: revisa `/#/favorites`, aplica filtros por mood/idioma y elimina alguna cita para comprobar que se refleja en Supabase/localStorage.
-8. Diario: entra en `/#/journal`, crea y borra una entrada y confirma que persiste tras recargar (usa el mismo usuario).
+8. Diario: entra en `/#/journal`, crea y borra una entrada con la sesión iniciada y verifica que aparece en la tabla `journal_entries`; después cierra sesión para confirmar que el modo local sigue funcionando.
 
 Enjoy the calm launch.
 

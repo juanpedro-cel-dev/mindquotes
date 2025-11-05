@@ -149,6 +149,12 @@ export type JournalPageCopy = {
   title: string;
   subtitle: string;
   loginPrompt: string;
+  cloudNotice: string;
+  localNotice: string;
+  syncing: string;
+  syncError: string;
+  saveError: string;
+  deleteError: string;
   empty: string;
   titleLabel: string;
   titlePlaceholder: string;
@@ -319,6 +325,13 @@ export const copy: Record<Lang, AppCopy> = {
         "Escribe cómo te sientes, qué aprendiste o en qué quieres enfocarte. Nadie más lo ve.",
       loginPrompt:
         "Inicia sesión para empezar tu diario y sincronizarlo en este dispositivo.",
+      cloudNotice:
+        "Tus entradas se guardan en Supabase y podrás revisarlas desde cualquier dispositivo.",
+      localNotice: "Tus entradas actuales viven solo en este dispositivo.",
+      syncing: "Sincronizando tu diario…",
+      syncError: "No pudimos sincronizar el diario. Mostramos lo guardado aquí.",
+      saveError: "No pudimos guardar la entrada. Intenta de nuevo.",
+      deleteError: "No pudimos eliminar la entrada. Intenta nuevamente.",
       empty: "Cuando escribas tu primera entrada, aparecerá aquí.",
       titleLabel: "Título",
       titlePlaceholder: "Una idea corta o resumen (opcional)",
@@ -476,6 +489,12 @@ export const copy: Record<Lang, AppCopy> = {
         "Capture how you feel, what you learned, or what you want to focus on. It stays on this device.",
       loginPrompt:
         "Sign in to start your journal and keep it linked to your profile on this device.",
+      cloudNotice: "Entries sync to Supabase so you can revisit them from any device.",
+      localNotice: "Entries are stored locally on this device.",
+      syncing: "Syncing your journal…",
+      syncError: "We couldn’t sync the journal. Showing what’s saved locally.",
+      saveError: "We couldn’t save the entry. Please try again.",
+      deleteError: "We couldn’t delete the entry. Please try again.",
       empty: "Once you add your first entry it will appear here.",
       titleLabel: "Title",
       titlePlaceholder: "A short idea or summary (optional)",

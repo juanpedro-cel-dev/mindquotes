@@ -300,11 +300,13 @@ export default function App() {
   const totalFavorites = user?.favorites.length ?? 0;
   const favoritesList = user ? [...user.favorites].reverse() : [];
   const journalStorageKey = useMemo(() => {
-    if (!user) return null;
-    const base = user.id
-      ? user.id
-      : user.name.trim().toLowerCase().replace(/\s+/g, "_");
-    return `mq_journal_${base}`;
+    if (user?.id) {
+      return `mq_journal_${user.id}`;
+    }
+    if (user?.name?.trim()) {
+      return `mq_journal_${user.name.trim().toLowerCase().replace(/\s+/g, "_")}`;
+    }
+    return "mq_journal_guest";
   }, [user]);
 
   const currentFavoriteId =
@@ -435,6 +437,7 @@ export default function App() {
           reduceMotion={prefersReducedMotion}
           lang={lang}
           userName={user?.name}
+          userId={user?.id ?? null}
         />
       </ZenShell>
     );
