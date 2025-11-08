@@ -35,7 +35,6 @@ type MusicPlayerProps = {
   trackMood: QuoteCategory | null;
   autoPlayMood: QuoteCategory | null;
   onAutoPlayConsumed?: () => void;
-  onDisableTrack: () => void;
   moodOptions: MoodOption[];
   onSelectMood: (mood: QuoteCategory) => void;
 };
@@ -45,7 +44,6 @@ export default function MusicPlayer({
   trackMood,
   autoPlayMood,
   onAutoPlayConsumed,
-  onDisableTrack,
   moodOptions,
   onSelectMood,
 }: MusicPlayerProps) {
@@ -303,11 +301,6 @@ export default function MusicPlayer({
     onAutoPlayConsumed,
   ]);
 
-  const handleStopTrack = useCallback(() => {
-    fadeStopSources();
-    onDisableTrack();
-  }, [fadeStopSources, onDisableTrack]);
-
   const handleSelectMood = useCallback(
     (mood: QuoteCategory) => {
       if (mood === trackMood) return;
@@ -398,16 +391,6 @@ export default function MusicPlayer({
             >
               {buttonLabel}
             </button>
-
-            {(isPlaying || trackInfo) && (
-              <button
-                type="button"
-                onClick={handleStopTrack}
-                className="inline-flex items-center justify-center rounded-full border border-teal-200/70 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-teal-700 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-              >
-                {copy.trackSwitchOff}
-              </button>
-            )}
           </div>
         </div>
 

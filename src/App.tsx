@@ -112,7 +112,7 @@ export default function App() {
   const [authInfo, setAuthInfo] = useState<string | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [selectedTrackMood, setSelectedTrackMood] =
-    useState<QuoteCategory | null>(null);
+    useState<QuoteCategory | null>(() => copy.es.quotes.filters[0]?.id ?? null);
   const [autoPlayMood, setAutoPlayMood] =
     useState<QuoteCategory | null>(null);
 
@@ -219,6 +219,15 @@ export default function App() {
     { id: "all", label: t.quotes.allLabel },
     ...filters,
   ];
+  useEffect(() => {
+    if (!filters.length) return;
+    setSelectedTrackMood((current) => {
+      if (current && filters.some(({ id }) => id === current)) {
+        return current;
+      }
+      return filters[0]!.id;
+    });
+  }, [filters]);
   const handleNavigate = (id: string) => {
     const nextView = id === "favorites" || id === "journal" || id === "feedback" ? id : "quotes";
     setView(nextView);
@@ -310,11 +319,6 @@ export default function App() {
   const handleFocusToggle = () => {
     if (!user || !user.premium) return;
     setFocusMode(!focusMode);
-  };
-
-  const handleDisableTrack = () => {
-    setSelectedTrackMood(null);
-    setAutoPlayMood(null);
   };
 
   const handleSelectTrackMood = (mood: QuoteCategory) => {
@@ -727,7 +731,6 @@ export default function App() {
             trackMood={selectedTrackMood}
             autoPlayMood={autoPlayMood}
             onAutoPlayConsumed={() => setAutoPlayMood(null)}
-            onDisableTrack={handleDisableTrack}
             moodOptions={filters}
             onSelectMood={handleSelectTrackMood}
           />

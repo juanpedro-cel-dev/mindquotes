@@ -69,7 +69,6 @@ export type MusicCopy = {
   trackLoading: string;
   trackActive: string;
   trackPaused: string;
-  trackSwitchOff: string;
   trackSwitchOn: string;
   selectMoodPrompt: string;
 };
@@ -242,7 +241,6 @@ export const copy: Record<Lang, AppCopy> = {
       trackLoading: "Cargando ambiente...",
       trackActive: "Reproduciendo {title} · {author}",
       trackPaused: "Ambiente pausado: {title}",
-      trackSwitchOff: "Volver al sonido generativo",
       trackSwitchOn: "Usar música según mood",
       selectMoodPrompt: "Elige un mood para comenzar la música.",
     },
@@ -407,7 +405,6 @@ export const copy: Record<Lang, AppCopy> = {
       trackLoading: "Loading ambience...",
       trackActive: "Now playing {title} · {author}",
       trackPaused: "Ambience paused: {title}",
-      trackSwitchOff: "Return to generative sound",
       trackSwitchOn: "Use mood-based music",
       selectMoodPrompt: "Select a mood to start the ambience.",
     },
