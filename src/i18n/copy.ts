@@ -71,6 +71,7 @@ export type MusicCopy = {
   trackPaused: string;
   trackSwitchOff: string;
   trackSwitchOn: string;
+  selectMoodPrompt: string;
 };
 
 type QuoteFilterCopy = {
@@ -243,6 +244,7 @@ export const copy: Record<Lang, AppCopy> = {
       trackPaused: "Ambiente pausado: {title}",
       trackSwitchOff: "Volver al sonido generativo",
       trackSwitchOn: "Usar música según mood",
+      selectMoodPrompt: "Elige un mood para comenzar la música.",
     },
     quotes: {
       tagline: "Un momento de calma para seguir creando.",
@@ -407,6 +409,7 @@ export const copy: Record<Lang, AppCopy> = {
       trackPaused: "Ambience paused: {title}",
       trackSwitchOff: "Return to generative sound",
       trackSwitchOn: "Use mood-based music",
+      selectMoodPrompt: "Select a mood to start the ambience.",
     },
     quotes: {
       tagline: "A moment of calm to keep creating.",

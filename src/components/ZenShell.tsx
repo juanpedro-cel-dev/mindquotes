@@ -64,7 +64,7 @@ export default function ZenShell({
         {/* Header */}
         <header className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-200 hover:drop-shadow-[0_12px_40px_rgba(26,87,76,0.08)]">
           {/* Logo + eslogan */}
-          <div className={wrapperClass}>
+          <a href="#/" aria-label={logoAlt} className={wrapperClass}>
             <div className={haloClass} />
 
             <img src="/logo-mindquotes.png" alt={logoAlt} className={logoClass} />
@@ -77,7 +77,7 @@ export default function ZenShell({
                 {title}
               </span>
             </div>
-          </div>
+          </a>
 
           <div className="flex items-center gap-3">
             {!focusMode && (
@@ -119,7 +119,7 @@ export default function ZenShell({
 
         {/* Contenido principal */}
         <main className="pb-12">
-          <div className="mx-auto max-w-3xl">{children}</div>
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
 
         {/* Footer */}

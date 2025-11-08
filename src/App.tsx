@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import ZenShell from "./components/ZenShell";
 import AdBox from "./components/AdBox";
@@ -113,12 +113,8 @@ export default function App() {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [selectedTrackMood, setSelectedTrackMood] =
     useState<QuoteCategory | null>(null);
-  const [pendingTrackMood, setPendingTrackMood] =
-    useState<QuoteCategory | null>(null);
-  const [showTrackPrompt, setShowTrackPrompt] = useState(false);
   const [autoPlayMood, setAutoPlayMood] =
     useState<QuoteCategory | null>(null);
-  const declinedMoodsRef = useRef<Set<QuoteCategory>>(new Set());
 
   const quotes = useMemo<Quote[]>(
     () => ((lang === "es" ? quotesES : quotesEN) as Quote[]),
@@ -165,19 +161,6 @@ export default function App() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(CATEGORY_STORAGE_KEY, category);
   }, [category]);
-
-  useEffect(() => {
-    if (category === "all") {
-      setPendingTrackMood(null);
-      setShowTrackPrompt(false);
-      return;
-    }
-    const mood = category as QuoteCategory;
-    if (selectedTrackMood === mood) return;
-    if (declinedMoodsRef.current.has(mood)) return;
-    setPendingTrackMood(mood);
-    setShowTrackPrompt(true);
-  }, [category, selectedTrackMood]);
 
   useEffect(() => {
     if (!filteredQuotes.length) {
@@ -329,26 +312,14 @@ export default function App() {
     setFocusMode(!focusMode);
   };
 
-  const handleAcceptTrack = () => {
-    if (!pendingTrackMood) return;
-    setSelectedTrackMood(pendingTrackMood);
-    setAutoPlayMood(pendingTrackMood);
-    declinedMoodsRef.current.delete(pendingTrackMood);
-    setPendingTrackMood(null);
-    setShowTrackPrompt(false);
-  };
-
-  const handleDeclineTrack = () => {
-    if (pendingTrackMood) {
-      declinedMoodsRef.current.add(pendingTrackMood);
-    }
-    setPendingTrackMood(null);
-    setShowTrackPrompt(false);
-  };
-
   const handleDisableTrack = () => {
     setSelectedTrackMood(null);
     setAutoPlayMood(null);
+  };
+
+  const handleSelectTrackMood = (mood: QuoteCategory) => {
+    setSelectedTrackMood(mood);
+    setAutoPlayMood(mood);
   };
 
   useEffect(() => {
@@ -365,9 +336,9 @@ export default function App() {
   const favoritesTitleId = "favorites-dialog-title";
   const favoritesDescId = "favorites-dialog-description";
   const quoteCardClass = [
-    "relative mt-10 rounded-3xl border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(20,73,63,0.1)] p-8",
+    "relative rounded-3xl border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(20,73,63,0.1)] p-8",
     focusMode
-      ? "mx-auto mt-12 max-w-4xl border-white/80 bg-white/75 shadow-[0_16px_50px_rgba(20,73,63,0.18)]"
+      ? "mx-auto max-w-4xl border-white/80 bg-white/75 shadow-[0_16px_50px_rgba(20,73,63,0.18)]"
       : "",
   ].join(" ");
   const quoteSectionClass = [
@@ -376,8 +347,8 @@ export default function App() {
     focusMode ? "mx-auto max-w-2xl" : "",
   ].join(" ");
   const blockquoteClass = [
-    "mt-1 text-teal-950 text-xl sm:text-2xl leading-relaxed transition-opacity duration-200",
-    focusMode ? "sm:text-3xl" : "",
+    "mt-1 text-teal-950 text-2xl sm:text-3xl leading-relaxed tracking-tight transition-opacity duration-200",
+    focusMode ? "sm:text-[2.2rem] lg:text-[2.6rem]" : "lg:text-[2rem]",
     fading ? "opacity-0" : "opacity-100",
   ].join(" ");
   const cardTransition = useMemo(
@@ -393,9 +364,224 @@ export default function App() {
   const primaryQuoteInitial = prefersReducedMotion
     ? { opacity: 1, y: 0 }
     : { opacity: 0, y: 20 };
-  const musicInitial = prefersReducedMotion
-    ? { opacity: 1, y: 0 }
-    : { opacity: 0, y: 18 };
+
+  const authHeading = authMode === "register" ? t.login.modeRegister : t.login.modeLogin;
+  const authToggleLabel =
+    authMode === "register" ? t.login.switchToLogin : t.login.switchToRegister;
+
+  const leftPanel = user ? (
+    <motion.section
+      key="panel-logged"
+      initial={primaryInitial}
+      animate={{ opacity: 1, y: 0 }}
+      transition={cardTransition}
+      className="rounded-3xl border border-white/70 bg-white/60 backdrop-blur-xl px-6 py-6 shadow-[0_12px_48px_rgba(20,73,63,0.12)] flex flex-col gap-6"
+    >
+      <div className="space-y-1 text-center sm:text-left">
+        <p className="text-lg font-semibold text-teal-950">
+          {t.user.greeting}, {user.name}
+        </p>
+        <p className="text-sm text-teal-700/80">
+          {user.premium ? t.user.premiumActive : t.user.freeActive}
+        </p>
+      </div>
+
+      <motion.div
+        layout
+        className="rounded-2xl border border-teal-200/60 bg-white/70 px-4 py-3 text-left shadow-sm"
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/70">
+          {t.quotes.favoritesTitle}
+        </p>
+        {favoritesPreview.length ? (
+          <motion.ul layout className="mt-2 flex flex-wrap gap-2 text-left">
+            {favoritesPreview.map((fav) => (
+              <motion.li
+                layout
+                key={fav.id}
+                className="min-w-[12rem] max-w-[18rem] rounded-2xl border border-teal-200/60 bg-white/80 px-3 py-2 shadow-sm"
+              >
+                <p className="text-sm text-teal-900">“{fav.text}”</p>
+                {fav.author && (
+                  <p className="mt-1 text-xs text-teal-700/80">— {fav.author}</p>
+                )}
+                <span className="mt-2 inline-flex items-center rounded-full border border-teal-200/70 bg-white/70 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.24em] text-teal-600/80">
+                  {categoryLabelMap.get(fav.category) ?? fav.category}
+                </span>
+              </motion.li>
+            ))}
+          </motion.ul>
+        ) : (
+          <p className="mt-2 text-xs text-teal-700/70">{t.quotes.favoritesEmpty}</p>
+        )}
+        {totalFavorites > 0 && (
+          <button
+            type="button"
+            onClick={() => setFavoritesOpen(true)}
+            className="mt-3 inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/75 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+          >
+            {t.quotes.favoritesAction}
+          </button>
+        )}
+      </motion.div>
+
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-teal-200/60 bg-white/70 px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/70">
+                {t.quotes.focusMode.title}
+              </p>
+              <p className="mt-1 text-xs text-teal-700/75">
+                {t.quotes.focusMode.description}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleFocusToggle}
+              disabled={!user.premium}
+              className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {focusMode ? t.quotes.focusMode.deactivate : t.quotes.focusMode.activate}
+            </button>
+          </div>
+          {!user.premium && (
+            <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-teal-600/70">
+              {t.quotes.focusMode.premiumNotice}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              void togglePremium();
+            }}
+            aria-pressed={user.premium}
+            className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-teal-800 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+          >
+            {user.premium ? t.user.toggleToFree : t.user.toggleToPremium}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void logout();
+            }}
+            className="inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+          >
+            {t.user.logout}
+          </button>
+        </div>
+      </div>
+    </motion.section>
+  ) : (
+    <motion.section
+      key="panel-guest"
+      initial={primaryInitial}
+      animate={{ opacity: 1, y: 0 }}
+      transition={cardTransition}
+      className="rounded-3xl border border-white/70 bg-white/60 backdrop-blur-xl px-6 py-5 shadow-[0_12px_48px_rgba(20,73,63,0.12)]"
+    >
+      <header className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-teal-950 sm:text-xl">{authHeading}</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setAuthMode(authMode === "register" ? "login" : "register");
+            setAuthError(null);
+            setAuthInfo(null);
+          }}
+          className="text-sm font-semibold text-teal-700 underline-offset-4 hover:underline"
+        >
+          {authToggleLabel}
+        </button>
+      </header>
+
+      <form onSubmit={handleAuthSubmit} className="mt-5 space-y-3">
+        {authMode === "register" && (
+          <div className="space-y-2">
+            <label
+              htmlFor="auth-name"
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700/70"
+            >
+              {t.login.nameLabel}
+            </label>
+            <input
+              id="auth-name"
+              name="auth-name"
+              value={nameDraft}
+              onChange={(event) => setNameDraft(event.currentTarget.value)}
+              placeholder={t.login.namePlaceholder}
+              className="w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <label
+            htmlFor="auth-email"
+            className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700/70"
+          >
+            {t.login.emailLabel}
+          </label>
+          <input
+            id="auth-email"
+            name="auth-email"
+            type="email"
+            value={emailDraft}
+            onChange={(event) => setEmailDraft(event.currentTarget.value)}
+            placeholder={t.login.emailPlaceholder}
+            className="w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="auth-password"
+            className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700/70"
+          >
+            {t.login.passwordLabel}
+          </label>
+          <input
+            id="auth-password"
+            name="auth-password"
+            type="password"
+            value={passwordDraft}
+            onChange={(event) => setPasswordDraft(event.currentTarget.value)}
+            placeholder={t.login.passwordPlaceholder}
+            className="w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
+          />
+          <p className="text-xs text-teal-700/60">{t.login.passwordHint}</p>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={
+            authMode === "login"
+              ? !emailDraft.trim() || !passwordDraft.trim()
+              : !nameDraft.trim() ||
+                !emailDraft.trim() ||
+                passwordDraft.trim().length < 6
+          }
+        >
+          {authMode === "login" ? t.login.submitLogin : t.login.submitRegister}
+        </button>
+      </form>
+
+      {authError && (
+        <p className="mt-3 rounded-2xl border border-red-200/60 bg-red-50/70 px-4 py-2 text-sm text-red-600/80">
+          {authError}
+        </p>
+      )}
+      {authInfo && (
+        <p className="mt-3 rounded-2xl border border-emerald-200/60 bg-emerald-50/80 px-4 py-2 text-sm text-emerald-700/80">
+          {authInfo}
+        </p>
+      )}
+    </motion.section>
+  );
 
   if (view === "feedback") {
     return (
@@ -445,406 +631,114 @@ export default function App() {
 
   return (
     <ZenShell {...shellProps}>
-      <section className="mt-12 sm:mt-14 space-y-6">
-        {user ? (
-          <motion.div
-            initial={primaryInitial}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition}
-            className="rounded-3xl border border-white/70 bg-white/60 backdrop-blur-xl shadow-[0_8px_30px_rgba(20,73,63,0.08)] px-6 py-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="flex flex-col gap-3 text-center sm:text-left">
-              <div>
-                <p className="text-base font-semibold text-teal-950">
-                  {t.user.greeting}, {user.name}
-                </p>
-                <p className="text-sm text-teal-700/80">
-                  {user.premium ? t.user.premiumActive : t.user.freeActive}
-                </p>
-              </div>
+      <section className="mt-12 grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,360px)_minmax(0,1.45fr)_minmax(0,0.95fr)] xl:grid-cols-[minmax(0,360px)_minmax(0,1.6fr)_minmax(0,1fr)]">
+        {leftPanel}
+        <motion.div
+          layout
+          initial={primaryQuoteInitial}
+          animate={{ opacity: 1, y: 0 }}
+          transition={cardTransition}
+          className={quoteCardClass}
+        >
+          <section className={quoteSectionClass}>
+            <LogoZen alt={t.quotes.logoAlt} />
 
-              <motion.div
-                layout
-                className="rounded-2xl border border-teal-200/50 bg-white/60 px-4 py-3 text-left shadow-sm"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/70">
-                  {t.quotes.favoritesTitle}
-                </p>
-                {favoritesPreview.length ? (
-                  <motion.ul
-                    layout
-                    className="mt-2 flex flex-wrap gap-2 text-left"
-                  >
-                    {favoritesPreview.map((fav) => (
-                      <motion.li
-                        layout
-                        key={fav.id}
-                        className="min-w-[12rem] max-w-[18rem] rounded-2xl border border-teal-200/60 bg-white/80 px-3 py-2 shadow-sm"
+              <p className="mt-2 max-w-prose text-sm text-teal-700/80 sm:text-base">
+                {t.quotes.tagline}
+              </p>
+
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[11px] uppercase tracking-[0.24em] text-teal-600/80">
+                  {t.quotes.filterLabel}
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {filterOptions.map(({ id, label }) => {
+                    const active = category === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setCategory(id)}
+                        aria-pressed={active}
+                        className={`inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 ${
+                          active
+                            ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
+                            : "border-teal-200/70 bg-white/60 text-teal-800 hover:bg-white/85 hover:border-teal-400/70"
+                        }`}
                       >
-                        <p className="text-sm text-teal-900">
-                          “{fav.text}”
-                        </p>
-                        {fav.author && (
-                          <p className="mt-1 text-xs text-teal-700/80">
-                            — {fav.author}
-                          </p>
-                        )}
-                        <span className="mt-2 inline-flex items-center rounded-full border border-teal-200/70 bg-white/70 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.24em] text-teal-600/80">
-                          {categoryLabelMap.get(fav.category) ?? fav.category}
-                        </span>
-                      </motion.li>
-                    ))}
-                  </motion.ul>
-                ) : (
-                  <p className="mt-2 text-xs text-teal-700/70">
-                    {t.quotes.favoritesEmpty}
-                  </p>
-                )}
-                {totalFavorites > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFavoritesOpen(true)}
-                    className="mt-3 inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/75 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-                  >
-                    {t.quotes.favoritesAction}
-                  </button>
-                )}
-              </motion.div>
-
-              <div className="rounded-2xl border border-teal-200/50 bg-white/65 px-4 py-3 text-left shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/70">
-                  {t.quotes.focusMode.title}
-                </p>
-                <p className="mt-1 text-xs text-teal-700/75">
-                  {t.quotes.focusMode.description}
-                </p>
-                <div className="mt-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleFocusToggle}
-                    disabled={!user.premium}
-                    aria-pressed={focusMode}
-                    title={!user.premium ? t.quotes.focusMode.premiumNotice : undefined}
-                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      focusMode
-                        ? "border-teal-500/80 bg-teal-100/70 text-teal-900 shadow-inner shadow-teal-900/10"
-                        : "border-teal-300/70 bg-white/80 text-teal-800 hover:bg-white"
-                    }`}
-                  >
-                    {focusMode
-                      ? t.quotes.focusMode.deactivate
-                      : t.quotes.focusMode.activate}
-                  </button>
-                  {!user.premium && (
-                    <span className="text-[10px] uppercase tracking-[0.22em] text-teal-600/70">
-                      {t.quotes.focusMode.premiumNotice}
-                    </span>
-                  )}
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  void togglePremium();
-                }}
-                aria-pressed={user.premium}
-                className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-teal-800 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+              <motion.blockquote
+                key={current?.text ?? "empty"}
+                layout
+                aria-live="polite"
+                className={blockquoteClass}
               >
-                {user.premium ? t.user.toggleToFree : t.user.toggleToPremium}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void logout();
-                }}
-                className="inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-              >
-                {t.user.logout}
-              </button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.form
-            initial={primaryInitial}
-            animate={{ opacity: 1, y: 0 }}
-            transition={cardTransition}
-            onSubmit={handleAuthSubmit}
-            className="flex flex-col gap-6 rounded-3xl border border-white/70 bg-white/55 px-6 py-6 shadow-[0_8px_30px_rgba(20,73,63,0.08)] backdrop-blur-xl sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div className="flex w-full flex-col gap-4 sm:max-w-md">
-              <div className="inline-flex w-max items-center gap-1 rounded-full bg-white/80 p-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-teal-700/70 shadow-inner shadow-white/50">
+                “{current?.text ?? t.quotes.empty}”
+              </motion.blockquote>
+
+              {current?.author && (
+                <p className="text-base text-teal-700/85">— {current.author}</p>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setAuthError(null);
-                    setAuthInfo(null);
-                  }}
-                  className={`rounded-full px-4 py-1.5 transition ${
-                    authMode === "login"
-                      ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
-                      : "text-teal-700/70 hover:text-teal-800"
+                  onClick={handleToggleFavorite}
+                  disabled={!user || !current}
+                  aria-pressed={isCurrentFavorite}
+                  className={`inline-flex items-center justify-center rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isCurrentFavorite
+                      ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
+                      : "border-teal-300/70 bg-white/70 text-teal-800 hover:bg-white/90"
                   }`}
+                  title={!user ? t.quotes.saveLogin : undefined}
                 >
-                  {t.login.modeLogin}
+                  {isCurrentFavorite ? t.quotes.saved : t.quotes.save}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setAuthMode("register");
-                    setAuthError(null);
-                    setAuthInfo(null);
-                  }}
-                  className={`rounded-full px-4 py-1.5 transition ${
-                    authMode === "register"
-                      ? "bg-teal-600 text-white shadow-md shadow-teal-900/20"
-                      : "text-teal-700/70 hover:text-teal-800"
-                  }`}
+                  onClick={nextQuote}
+                  disabled={!hasQuotes}
+                  className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-teal-700 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {t.login.modeRegister}
+                  {t.quotes.newQuote}
                 </button>
               </div>
 
-              <h2 className="text-base font-semibold text-teal-900">
-                {t.login.title}
-              </h2>
+              <p className="mt-5 text-xs text-teal-700/70">{t.quotes.beta}</p>
+            </section>
+        </motion.div>
 
-              <div className="space-y-4">
-                {authMode === "register" && (
-                  <div>
-                    <label
-                      htmlFor="auth-name"
-                      className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
-                    >
-                      {t.login.nameLabel}
-                    </label>
-                    <input
-                      id="auth-name"
-                      name="auth-name"
-                      value={nameDraft}
-                      onChange={(event) =>
-                        setNameDraft(event.currentTarget.value)
-                      }
-                      placeholder={t.login.namePlaceholder}
-                      className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
-                    />
-                  </div>
-                )}
+        <motion.div
+          layout
+          initial={primaryQuoteInitial}
+          animate={{ opacity: 1, y: 0 }}
+          transition={cardTransition}
+          className="flex min-w-0"
+        >
+          <MusicPlayer
+            copy={t.music}
+            trackMood={selectedTrackMood}
+            autoPlayMood={autoPlayMood}
+            onAutoPlayConsumed={() => setAutoPlayMood(null)}
+            onDisableTrack={handleDisableTrack}
+            moodOptions={filters}
+            onSelectMood={handleSelectTrackMood}
+          />
+        </motion.div>
 
-                <div>
-                  <label
-                    htmlFor="auth-email"
-                    className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
-                  >
-                    {t.login.emailLabel}
-                  </label>
-                  <input
-                    id="auth-email"
-                    name="auth-email"
-                    type="email"
-                    value={emailDraft}
-                    onChange={(event) =>
-                      setEmailDraft(event.currentTarget.value)
-                    }
-                    placeholder={t.login.emailPlaceholder}
-                    className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="auth-password"
-                    className="block text-xs font-semibold uppercase tracking-[0.12em] text-teal-700/70"
-                  >
-                    {t.login.passwordLabel}
-                  </label>
-                  <input
-                    id="auth-password"
-                    name="auth-password"
-                    type="password"
-                    value={passwordDraft}
-                    onChange={(event) =>
-                      setPasswordDraft(event.currentTarget.value)
-                    }
-                    placeholder={t.login.passwordPlaceholder}
-                    className="mt-2 w-full rounded-2xl border border-teal-200/80 bg-white/85 px-4 py-2.5 text-sm text-teal-950 shadow-inner shadow-teal-950/5 placeholder:text-teal-700/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition"
-                  />
-                  <p className="mt-1 text-xs text-teal-700/60">
-                    {t.login.passwordHint}
-                  </p>
-                </div>
-              </div>
-
-              {authError && (
-                <p className="text-sm text-rose-500">{authError}</p>
-              )}
-              {authInfo && (
-                <p className="text-sm text-teal-700">{authInfo}</p>
-              )}
-            </div>
-
-            <div className="flex w-full flex-col gap-3 sm:max-w-[200px]">
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={
-                  authMode === "login"
-                    ? !emailDraft.trim() || !passwordDraft.trim()
-                    : !nameDraft.trim() ||
-                      !emailDraft.trim() ||
-                      passwordDraft.trim().length < 6
-                }
-              >
-                {authMode === "login"
-                  ? t.login.submitLogin
-                  : t.login.submitRegister}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextMode = authMode === "login" ? "register" : "login";
-                  setAuthMode(nextMode);
-                  setAuthError(null);
-                  setAuthInfo(null);
-                }}
-                className="text-xs font-semibold text-teal-700/80 underline-offset-2 hover:underline"
-              >
-                {authMode === "login"
-                  ? t.login.switchToRegister
-                  : t.login.switchToLogin}
-              </button>
-            </div>
-          </motion.form>
+        {!focusMode && !user?.premium && (
+          <div className="lg:col-span-3">
+            <AdBox ariaLabel={t.ad.ariaLabel} />
+          </div>
         )}
       </section>
-
-      <motion.div
-        initial={musicInitial}
-        animate={{ opacity: 1, y: 0 }}
-        transition={cardTransition}
-      >
-        <MusicPlayer
-          copy={t.music}
-          trackMood={selectedTrackMood}
-          autoPlayMood={autoPlayMood}
-          onAutoPlayConsumed={() => setAutoPlayMood(null)}
-          onDisableTrack={handleDisableTrack}
-        />
-      </motion.div>
-
-      <motion.div
-        initial={primaryQuoteInitial}
-        animate={{ opacity: 1, y: 0 }}
-        transition={cardTransition}
-        className={quoteCardClass}
-      >
-        <section className={quoteSectionClass}>
-          {/* Logo dentro de la tarjeta con animación fade-up */}
-          <LogoZen alt={t.quotes.logoAlt} />
-
-          <p className="mt-2 max-w-prose text-sm text-teal-700/80 sm:text-base">
-            {t.quotes.tagline}
-          </p>
-
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-[11px] uppercase tracking-[0.24em] text-teal-600/80">
-              {t.quotes.filterLabel}
-            </span>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {filterOptions.map(({ id, label }) => {
-                const active = category === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setCategory(id)}
-                    aria-pressed={active}
-                    className={`inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 ${
-                      active
-                        ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
-                        : "border-teal-200/70 bg-white/60 text-teal-800 hover:bg-white/85 hover:border-teal-400/70"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {showTrackPrompt && pendingTrackMood && (
-            <div
-              className="w-full max-w-md rounded-2xl border border-teal-200/60 bg-white/80 px-5 py-4 text-sm text-teal-900 shadow-sm sm:text-base"
-              role="alert"
-            >
-              <p>{t.quotes.moodPrompt.question}</p>
-              <div className="mt-3 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleAcceptTrack}
-                  className="inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-                >
-                  {t.quotes.moodPrompt.accept}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeclineTrack}
-                  className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-5 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-                >
-                  {t.quotes.moodPrompt.decline}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {current ? (
-            <blockquote aria-live="polite" className={blockquoteClass}>
-              “{current.text}”
-              {current.author && (
-                <footer className="mt-3 text-base text-teal-700/80">
-                  — {current.author}
-                </footer>
-              )}
-            </blockquote>
-          ) : (
-            <p className="max-w-prose text-sm text-teal-700/80">
-              {t.quotes.empty}
-            </p>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={handleToggleFavorite}
-              disabled={!user || !current}
-              aria-pressed={isCurrentFavorite}
-              className={`inline-flex items-center justify-center rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                isCurrentFavorite
-                  ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
-                  : "border-teal-300/70 bg-white/70 text-teal-800 hover:bg-white/90"
-              }`}
-              title={!user ? t.quotes.saveLogin : undefined}
-            >
-              {isCurrentFavorite ? t.quotes.saved : t.quotes.save}
-            </button>
-            <button
-              type="button"
-              onClick={nextQuote}
-              disabled={!hasQuotes}
-              className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-teal-700 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {t.quotes.newQuote}
-            </button>
-          </div>
-
-          <p className="mt-5 text-xs text-teal-700/70">{t.quotes.beta}</p>
-        </section>
-      </motion.div>
-
-      {!focusMode && !user?.premium && <AdBox ariaLabel={t.ad.ariaLabel} />}
 
       {favoritesOpen && user && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
@@ -945,4 +839,3 @@ function pickRandom(list: Quote[], last?: string | null): Quote {
   } while (q.text === last);
   return q;
 }
-
