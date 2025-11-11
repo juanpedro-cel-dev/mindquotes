@@ -14,6 +14,7 @@ import {
 } from "./context/UserContext";
 import { copy, type Lang, type QuoteCategory } from "./i18n/copy";
 import { usePrefersReducedMotion } from "./hooks/usePrefersReducedMotion";
+import { useAdsenseLoader } from "./hooks/useAdsenseLoader";
 
 import quotesES from "./data/quotes.es.json";
 import quotesEN from "./data/quotes.en.json";
@@ -87,7 +88,6 @@ export default function App() {
     register,
     login,
     logout,
-    togglePremium,
     toggleFavorite,
     setFocusMode,
     submitFeedback,
@@ -115,6 +115,9 @@ export default function App() {
     useState<QuoteCategory | null>(() => copy.es.quotes.filters[0]?.id ?? null);
   const [autoPlayMood, setAutoPlayMood] =
     useState<QuoteCategory | null>(null);
+  const adsenseClientId = import.meta.env.VITE_ADSENSE_CLIENT_ID;
+  const premiumCheckoutUrl = import.meta.env.VITE_PREMIUM_CHECKOUT_URL ?? "";
+  const billingPortalUrl = import.meta.env.VITE_BILLING_PORTAL_URL ?? "";
 
   const quotes = useMemo<Quote[]>(
     () => ((lang === "es" ? quotesES : quotesEN) as Quote[]),
@@ -128,6 +131,17 @@ export default function App() {
     [category, quotes]
   );
   const focusMode = user?.focusMode ?? false;
+  const planFeatures = user?.features;
+  const canUseFocusFeatures = planFeatures?.focusMode ?? false;
+  const canUseCloudJournal = planFeatures?.cloudJournal ?? false;
+  const showAdsForUser = user ? user.showAds : true;
+  const shouldRenderAds = !focusMode && showAdsForUser;
+  useAdsenseLoader(Boolean(showAdsForUser && adsenseClientId), adsenseClientId);
+  const planActionUrl = user
+    ? user.premium
+      ? billingPortalUrl || premiumCheckoutUrl
+      : premiumCheckoutUrl
+    : premiumCheckoutUrl;
 
   useEffect(() => {
     localStorage.setItem("mq_lang", lang);
@@ -187,10 +201,10 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (user && !user.premium && focusMode) {
+    if (user && !canUseFocusFeatures && focusMode) {
       setFocusMode(false);
     }
-  }, [focusMode, setFocusMode, user]);
+  }, [canUseFocusFeatures, focusMode, setFocusMode, user]);
 
   const nextQuote = () => {
     if (!filteredQuotes.length) return;
@@ -212,6 +226,13 @@ export default function App() {
   };
 
   const t = copy[lang];
+  const planCtaLabel = user?.premium ? t.user.managePlan : t.user.upgradeCta;
+  const planCtaDescription = user?.premium
+    ? t.user.manageDescription
+    : t.user.upgradeDescription;
+  const planCtaDisabled = !planActionUrl;
+  const planCtaTitle = planCtaDisabled ? t.user.upgradeUnavailable : undefined;
+  const planStatusText = user?.premium ? t.user.premiumActive : t.user.freeActive;
   const filters = t.quotes.filters;
   const navItems = t.shell.nav;
   const activeNavId = view;
@@ -317,13 +338,19 @@ export default function App() {
   };
 
   const handleFocusToggle = () => {
-    if (!user || !user.premium) return;
+    if (!user || !canUseFocusFeatures) return;
     setFocusMode(!focusMode);
   };
 
   const handleSelectTrackMood = (mood: QuoteCategory) => {
     setSelectedTrackMood(mood);
     setAutoPlayMood(mood);
+  };
+
+  const handlePlanCta = () => {
+    if (!planActionUrl) return;
+    if (typeof window === "undefined") return;
+    window.open(planActionUrl, "_blank", "noopener,noreferrer");
   };
 
   useEffect(() => {
@@ -385,9 +412,7 @@ export default function App() {
         <p className="text-lg font-semibold text-teal-950">
           {t.user.greeting}, {user.name}
         </p>
-        <p className="text-sm text-teal-700/80">
-          {user.premium ? t.user.premiumActive : t.user.freeActive}
-        </p>
+        <p className="text-sm text-teal-700/80">{planStatusText}</p>
       </div>
 
       <motion.div
@@ -443,39 +468,60 @@ export default function App() {
             <button
               type="button"
               onClick={handleFocusToggle}
-              disabled={!user.premium}
+              disabled={!canUseFocusFeatures}
               className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {focusMode ? t.quotes.focusMode.deactivate : t.quotes.focusMode.activate}
             </button>
           </div>
-          {!user.premium && (
+          {!canUseFocusFeatures && (
             <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-teal-600/70">
               {t.quotes.focusMode.premiumNotice}
             </p>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              void togglePremium();
-            }}
-            aria-pressed={user.premium}
-            className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-teal-800 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-          >
-            {user.premium ? t.user.toggleToFree : t.user.toggleToPremium}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void logout();
-            }}
-            className="inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
-          >
-            {t.user.logout}
-          </button>
+        {!user.premium && t.user.benefits.length > 0 && (
+          <div className="rounded-2xl border border-teal-200/60 bg-white/70 px-4 py-3 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/70">
+              {t.user.benefitsTitle}
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-teal-800/80">
+              {t.user.benefits.map((benefit) => (
+                <li key={benefit} className="flex items-start gap-2">
+                  <span
+                    className="mt-1 h-1.5 w-1.5 rounded-full bg-teal-500"
+                    aria-hidden="true"
+                  />
+                  <span>{benefit}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-teal-200/60 bg-white/70 px-4 py-4 shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handlePlanCta}
+              disabled={planCtaDisabled}
+              title={planCtaTitle}
+              className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-5 py-2.5 text-sm font-semibold text-teal-800 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {planCtaLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void logout();
+              }}
+              className="inline-flex items-center justify-center rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition-all duration-200 hover:bg-teal-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+            >
+              {t.user.logout}
+            </button>
+          </div>
+          <p className="text-xs text-teal-700/70">{planCtaDescription}</p>
         </div>
       </div>
     </motion.section>
@@ -628,6 +674,8 @@ export default function App() {
           lang={lang}
           userName={user?.name}
           userId={user?.id ?? null}
+          cloudSyncAllowed={canUseCloudJournal}
+          upgradeHint={t.journalPage.upgradePrompt}
         />
       </ZenShell>
     );
@@ -736,7 +784,7 @@ export default function App() {
           />
         </motion.div>
 
-        {!focusMode && !user?.premium && (
+        {shouldRenderAds && (
           <div className="lg:col-span-3">
             <AdBox ariaLabel={t.ad.ariaLabel} />
           </div>

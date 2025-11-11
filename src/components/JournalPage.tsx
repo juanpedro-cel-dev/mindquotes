@@ -26,6 +26,8 @@ type JournalPageProps = {
   lang: Lang;
   userName?: string;
   userId?: string | null;
+  cloudSyncAllowed: boolean;
+  upgradeHint?: string;
 };
 
 function loadLocalEntries(key: string): JournalEntry[] {
@@ -71,6 +73,8 @@ export default function JournalPage({
   lang,
   userName,
   userId,
+  cloudSyncAllowed,
+  upgradeHint,
 }: JournalPageProps) {
   const [titleDraft, setTitleDraft] = useState("");
   const [contentDraft, setContentDraft] = useState("");
@@ -79,7 +83,7 @@ export default function JournalPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mode = SUPABASE_ENABLED && userId ? "cloud" : "local";
+  const mode = SUPABASE_ENABLED && cloudSyncAllowed && userId ? "cloud" : "local";
 
   useEffect(() => {
     setEntries(loadLocalEntries(storageKey));
@@ -242,7 +246,10 @@ export default function JournalPage({
     : ({ duration: 0.4, ease: "easeOut" } as const);
 
   const infoMessage = mode === "cloud" ? copy.cloudNotice : copy.localNotice;
-  const shouldEncourageLogin = mode === "local" && SUPABASE_ENABLED && !userId;
+  const shouldEncourageLogin =
+    mode === "local" && SUPABASE_ENABLED && !userId && cloudSyncAllowed;
+  const shouldShowUpgradeBanner =
+    Boolean(userId && !cloudSyncAllowed && upgradeHint);
 
   return (
     <motion.div
@@ -266,6 +273,11 @@ export default function JournalPage({
         {shouldEncourageLogin && (
           <div className="rounded-2xl border border-amber-200/70 bg-amber-50/90 px-4 py-3 text-xs text-amber-800 shadow-sm">
             {copy.loginPrompt}
+          </div>
+        )}
+        {shouldShowUpgradeBanner && (
+          <div className="rounded-2xl border border-amber-200/70 bg-amber-50/90 px-4 py-3 text-xs text-amber-800 shadow-sm">
+            {upgradeHint}
           </div>
         )}
         {(loading || saving) && (

@@ -18,13 +18,24 @@ export type FavoriteQuote = {
   lang: Lang;
 };
 
+export type PlanTier = "free_ads" | "premium" | "lifetime";
+
+type PlanFeatures = {
+  focusMode: boolean;
+  cloudJournal: boolean;
+};
+
 type User = {
   id?: string;
   email?: string;
   name: string;
   premium: boolean;
+  planTier: PlanTier;
+  showAds: boolean;
   favorites: FavoriteQuote[];
   focusMode: boolean;
+  adsDisabledUntil?: string | null;
+  features: PlanFeatures;
 };
 
 type RegisterPayload = {
@@ -66,6 +77,7 @@ type UserContextValue = {
 
 const PROFILE_CACHE_KEY = "mq_profile_cache_v1";
 const SUPABASE_ENABLED = Boolean(supabase);
+const DEFAULT_PLAN: PlanTier = "free_ads";
 
 type CachedProfile = {
   id?: string;
@@ -73,7 +85,42 @@ type CachedProfile = {
   email?: string;
   premium?: boolean;
   focusMode?: boolean;
+  planTier?: PlanTier;
+  showAds?: boolean;
+  adsDisabledUntil?: string | null;
 };
+
+const resolvePlanTier = (
+  plan: string | null | undefined,
+  legacyPremium?: boolean | null
+): PlanTier => {
+  if (plan === "premium" || plan === "lifetime") {
+    return plan;
+  }
+  if (legacyPremium) {
+    return "premium";
+  }
+  return DEFAULT_PLAN;
+};
+
+const hasAdsDisabled = (adsDisabledUntil?: string | null) => {
+  if (!adsDisabledUntil) return false;
+  const expiry = Number(new Date(adsDisabledUntil));
+  if (Number.isNaN(expiry)) return false;
+  return expiry > Date.now();
+};
+
+const computeShowAds = (planTier: PlanTier, adsDisabledUntil?: string | null) => {
+  if (planTier !== "free_ads") {
+    return false;
+  }
+  return !hasAdsDisabled(adsDisabledUntil);
+};
+
+const deriveFeatures = (planTier: PlanTier): PlanFeatures => ({
+  focusMode: planTier !== "free_ads",
+  cloudJournal: planTier !== "free_ads",
+});
 
 const favoritesStorageKey = (name: string) =>
   `mq_favorites_${name.trim().toLowerCase().replace(/\s+/g, "_")}`;
@@ -144,7 +191,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase!
           .from("profiles")
-          .select("id,username,premium,focus_mode")
+          .select("id,username,premium,focus_mode,plan_tier,ads_disabled_until")
           .eq("id", profileId)
           .maybeSingle();
         if (error) throw error;
@@ -181,13 +228,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
             })
           ) ?? [];
 
+        const planTier = resolvePlanTier(
+          (data as { plan_tier?: string | null })?.plan_tier ?? null,
+          data.premium
+        );
+        const adsDisabledUntil =
+          (data as { ads_disabled_until?: string | null })?.ads_disabled_until ?? null;
+        const showAds = computeShowAds(planTier, adsDisabledUntil);
+        const features = deriveFeatures(planTier);
+        const safeFocusMode = features.focusMode ? Boolean(data.focus_mode) : false;
+
         const profile: User = {
           id: data.id,
           email,
           name: data.username,
-          premium: Boolean(data.premium),
-          focusMode: Boolean(data.focus_mode),
+          premium: planTier !== "free_ads",
+          planTier,
+          showAds,
+          focusMode: safeFocusMode,
+          adsDisabledUntil,
           favorites,
+          features,
         };
 
         setUser(profile);
@@ -197,6 +258,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           email: profile.email,
           premium: profile.premium,
           focusMode: profile.focusMode,
+          planTier: profile.planTier,
+          showAds: profile.showAds,
+          adsDisabledUntil: profile.adsDisabledUntil ?? null,
         });
         return profile;
       } catch (error: unknown) {
@@ -225,13 +289,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
 
     const favorites = loadLocalFavorites(cached.name);
+    const planTier =
+      cached.planTier ??
+      resolvePlanTier(
+        null,
+        typeof cached.premium === "boolean" ? cached.premium : null
+      );
+    const adsDisabledUntil = cached.adsDisabledUntil ?? null;
+    const showAds = cached.showAds ?? computeShowAds(planTier, adsDisabledUntil);
+    const features = deriveFeatures(planTier);
     setUser({
       id: cached.id,
       email: cached.email,
       name: cached.name,
-      premium: Boolean(cached.premium),
-      focusMode: Boolean(cached.focusMode),
+      premium: planTier !== "free_ads",
+      planTier,
+      showAds,
+      focusMode: features.focusMode ? Boolean(cached.focusMode) : false,
+      adsDisabledUntil,
       favorites,
+      features,
     });
     setLoading(false);
   }, [hydrateFromSupabase]);
@@ -299,13 +376,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const favorites = loadLocalFavorites(cleanName);
         const focusMode = false;
         const id = crypto.randomUUID();
+        const planTier = DEFAULT_PLAN;
+        const features = deriveFeatures(planTier);
         const profile: User = {
           id,
           email: cleanEmail,
           name: cleanName,
           premium: false,
-          focusMode,
+          planTier,
+          showAds: computeShowAds(planTier),
+          focusMode: features.focusMode ? focusMode : false,
+          adsDisabledUntil: null,
           favorites,
+          features,
         };
         setUser(profile);
         saveCachedProfile({
@@ -314,6 +397,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           email: cleanEmail,
           premium: false,
           focusMode,
+          planTier,
+          showAds: profile.showAds,
+          adsDisabledUntil: null,
         });
         return { verificationRequired: false };
       }
@@ -376,13 +462,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const cached = loadCachedProfile();
         if (cached && cached.email === cleanEmail) {
           const favorites = loadLocalFavorites(cached.name);
+          const planTier =
+            cached.planTier ??
+            resolvePlanTier(
+              null,
+              typeof cached.premium === "boolean" ? cached.premium : null
+            );
+          const adsDisabledUntil = cached.adsDisabledUntil ?? null;
+          const showAds = cached.showAds ?? computeShowAds(planTier, adsDisabledUntil);
+          const features = deriveFeatures(planTier);
           setUser({
             id: cached.id,
             email: cached.email,
             name: cached.name,
-            premium: Boolean(cached.premium),
-            focusMode: Boolean(cached.focusMode),
+            premium: planTier !== "free_ads",
+            planTier,
+            showAds,
+            focusMode: features.focusMode ? Boolean(cached.focusMode) : false,
+            adsDisabledUntil,
             favorites,
+            features,
           });
         }
         return;
@@ -430,13 +529,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const togglePremium = useCallback(async () => {
     setUser((prev) => {
       if (!prev) return prev;
-      const next = { ...prev, premium: !prev.premium };
+      const nextPlan: PlanTier = prev.planTier === "free_ads" ? "premium" : "free_ads";
+      const features = deriveFeatures(nextPlan);
+      const showAds = computeShowAds(nextPlan, prev.adsDisabledUntil);
+      const nextFocusMode = features.focusMode ? prev.focusMode : false;
+      const next: User = {
+        ...prev,
+        premium: nextPlan !== "free_ads",
+        planTier: nextPlan,
+        showAds,
+        features,
+        focusMode: nextFocusMode,
+      };
       saveCachedProfile({
         id: prev.id,
         name: prev.name,
         email: prev.email,
         premium: next.premium,
         focusMode: next.focusMode,
+        planTier: next.planTier,
+        showAds: next.showAds,
+        adsDisabledUntil: next.adsDisabledUntil ?? null,
       });
       if (!SUPABASE_ENABLED || !prev.id) {
         return next;
@@ -445,7 +558,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         try {
           await supabase!
             .from("profiles")
-            .update({ premium: next.premium })
+            .update({ premium: next.premium, plan_tier: next.planTier })
             .eq("id", prev.id);
         } catch (error: unknown) {
           console.error("[UserProvider] togglePremium error:", error);
@@ -503,26 +616,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const setFocusMode = useCallback(async (active: boolean) => {
     setUser((prev) => {
       if (!prev) return prev;
+      const allowedValue = prev.features.focusMode ? active : false;
       saveCachedProfile({
         id: prev.id,
         name: prev.name,
         email: prev.email,
         premium: prev.premium,
-        focusMode: active,
+        focusMode: allowedValue,
+        planTier: prev.planTier,
+        showAds: prev.showAds,
+        adsDisabledUntil: prev.adsDisabledUntil ?? null,
       });
       if (SUPABASE_ENABLED && prev.id) {
         (async () => {
           try {
             await supabase!
               .from("profiles")
-              .update({ focus_mode: active })
+              .update({ focus_mode: allowedValue })
               .eq("id", prev.id);
           } catch (error: unknown) {
             console.error("[UserProvider] setFocusMode error:", error);
           }
         })();
       }
-      return { ...prev, focusMode: active };
+      return { ...prev, focusMode: allowedValue };
     });
   }, []);
 

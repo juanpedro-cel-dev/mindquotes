@@ -28,8 +28,13 @@ type UserCopy = {
   greeting: string;
   premiumActive: string;
   freeActive: string;
-  toggleToPremium: string;
-  toggleToFree: string;
+  upgradeCta: string;
+  managePlan: string;
+  upgradeUnavailable: string;
+  upgradeDescription: string;
+  manageDescription: string;
+  benefitsTitle: string;
+  benefits: string[];
   logout: string;
 };
 
@@ -149,6 +154,7 @@ export type JournalPageCopy = {
   title: string;
   subtitle: string;
   loginPrompt: string;
+  upgradePrompt: string;
   cloudNotice: string;
   localNotice: string;
   syncing: string;
@@ -200,9 +206,18 @@ export const copy: Record<Lang, AppCopy> = {
     user: {
       greeting: "Hola",
       premiumActive: "MindQuotes Premium activo: tu espacio sin anuncios.",
-      freeActive: "Plan gratuito activo: anuncios ligeros mientras fluyes.",
-      toggleToPremium: "Activar premium",
-      toggleToFree: "Desactivar premium",
+      freeActive: "Plan gratuito con anuncios suaves para seguir enfocado.",
+      upgradeCta: "Hazte Premium",
+      managePlan: "Gestionar plan",
+      upgradeUnavailable: "Configura el enlace del checkout para habilitar esta acción.",
+      upgradeDescription: "Sin anuncios, Focus Mode continuo y diario en la nube.",
+      manageDescription: "Gestiona tu suscripción o cancela cuando lo necesites.",
+      benefitsTitle: "Beneficios",
+      benefits: [
+        "Sesiones sin anuncios ni interrupciones",
+        "Focus Mode siempre disponible",
+        "Diario sincronizado en la nube",
+      ],
       logout: "Cerrar sesión",
     },
     login: {
@@ -325,6 +340,7 @@ export const copy: Record<Lang, AppCopy> = {
         "Escribe cómo te sientes, qué aprendiste o en qué quieres enfocarte. Nadie más lo ve.",
       loginPrompt:
         "Inicia sesión para empezar tu diario y sincronizarlo en este dispositivo.",
+      upgradePrompt: "Hazte Premium para guardar tu diario en la nube.",
       cloudNotice:
         "Tus entradas se guardan en Supabase y podrás revisarlas desde cualquier dispositivo.",
       localNotice: "Tus entradas actuales viven solo en este dispositivo.",
@@ -364,9 +380,18 @@ export const copy: Record<Lang, AppCopy> = {
     user: {
       greeting: "Hi",
       premiumActive: "MindQuotes Premium on: your calm space without ads.",
-      freeActive: "Free plan active: light ads while you flow.",
-      toggleToPremium: "Enable premium",
-      toggleToFree: "Disable premium",
+      freeActive: "Ad-supported plan active: light banners while you flow.",
+      upgradeCta: "Go Premium",
+      managePlan: "Manage plan",
+      upgradeUnavailable: "Add a checkout link to enable this action.",
+      upgradeDescription: "Remove ads, unlock Focus Mode and enable the cloud journal.",
+      manageDescription: "Update billing details or cancel whenever you need.",
+      benefitsTitle: "Includes",
+      benefits: [
+        "Ad-free, distraction-free sessions",
+        "Always-on Focus Mode",
+        "Cloud-synced journal",
+      ],
       logout: "Sign out",
     },
     login: {
@@ -489,6 +514,7 @@ export const copy: Record<Lang, AppCopy> = {
         "Capture how you feel, what you learned, or what you want to focus on. It stays on this device.",
       loginPrompt:
         "Sign in to start your journal and keep it linked to your profile on this device.",
+      upgradePrompt: "Upgrade to Premium to sync your journal in the cloud.",
       cloudNotice: "Entries sync to Supabase so you can revisit them from any device.",
       localNotice: "Entries are stored locally on this device.",
       syncing: "Syncing your journal…",
