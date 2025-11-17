@@ -25,6 +25,9 @@ type ZenShellProps = {
   navAria: string;
   logoAlt: string;
   focusMode?: boolean;
+  darkMode?: boolean;
+  themeToggleLabel?: string;
+  onToggleTheme?: () => void;
   reduceMotion?: boolean;
   children?: ReactNode;
 };
@@ -43,6 +46,9 @@ export default function ZenShell({
   navAria,
   logoAlt,
   focusMode = false,
+  darkMode = false,
+  themeToggleLabel,
+  onToggleTheme,
   reduceMotion = false,
   children,
 }: ZenShellProps) {
@@ -63,12 +69,20 @@ export default function ZenShell({
     reduceMotion ? "" : "group-hover:-translate-y-1",
   ].join(" ");
   const taglineClass = [
-    "mt-1 block text-[11px] uppercase tracking-[0.28em] text-teal-700/60 transition-colors duration-300",
-    reduceMotion ? "" : "group-hover:text-teal-600/90",
+    "mt-1 block text-[11px] uppercase tracking-[0.28em] transition-colors duration-300",
+    darkMode ? "text-slate-400" : "text-teal-700/60",
+    reduceMotion ? "" : darkMode ? "group-hover:text-slate-100" : "group-hover:text-teal-600/90",
+  ].join(" ");
+
+  const rootClass = [
+    "min-h-screen w-full",
+    darkMode
+      ? "bg-slate-950 text-slate-50"
+      : "bg-[radial-gradient(100%_100%_at_50%_0%,#e6fff3_0%,#d9f7ee_35%,#c7efe7_65%,#b7e7df_100%)] text-teal-950",
   ].join(" ");
 
   return (
-    <div className="min-h-screen w-full bg-[radial-gradient(100%_100%_at_50%_0%,#e6fff3_0%,#d9f7ee_35%,#c7efe7_65%,#b7e7df_100%)] text-teal-950">
+    <div className={rootClass}>
       <div className="mx-auto max-w-[88rem] px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <header className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all duration-200 hover:drop-shadow-[0_12px_40px_rgba(26,87,76,0.08)]">
@@ -113,6 +127,17 @@ export default function ZenShell({
                   );
                 })}
               </nav>
+            )}
+            {onToggleTheme && (
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-900 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+                title={themeToggleLabel}
+                aria-label={themeToggleLabel}
+              >
+                {darkMode ? "☀︎" : "☾"}
+              </button>
             )}
             <button
               type="button"

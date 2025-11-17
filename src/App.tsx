@@ -36,6 +36,8 @@ type ViewId =
   | "terms"
   | "contact";
 
+type ThemeMode = "auto" | "light" | "dark";
+
 const CATEGORY_STORAGE_KEY = "mq_quote_category";
 const VALID_FILTERS: QuoteFilter[] = [
   "all",
@@ -79,6 +81,13 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("mq_lang");
     return saved === "en" || saved === "es" ? (saved as Lang) : "es";
+  });
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    if (typeof window === "undefined") return "auto";
+    const stored = window.localStorage.getItem("mq_theme");
+    return stored === "light" || stored === "dark" || stored === "auto"
+      ? (stored as ThemeMode)
+      : "auto";
   });
   const resolveViewFromHash = (hash: string): ViewId => {
     switch (hash) {
@@ -170,6 +179,31 @@ export default function App() {
   }, [lang]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("mq_theme", themeMode);
+  }, [themeMode]);
+
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setDarkMode(false);
+      return;
+    }
+    const computeDark = () => {
+      if (themeMode === "dark") return true;
+      if (themeMode === "light") return false;
+      const hour = new Date().getHours();
+      const isNight = hour >= 20 || hour < 7;
+      const prefersDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return prefersDark || isNight;
+    };
+    setDarkMode(computeDark());
+  }, [themeMode]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const syncFromHash = () => {
       setView(resolveViewFromHash(window.location.hash));
@@ -255,6 +289,7 @@ export default function App() {
     }, 140);
   };
 
+
   const t = copy[lang];
   const planCtaLabel = user?.premium ? t.user.managePlan : t.user.upgradeCta;
   const planCtaDescription = user?.premium
@@ -326,6 +361,16 @@ export default function App() {
     navAria: t.shell.navAria,
     logoAlt: t.shell.logoAlt,
     focusMode: view === "quotes" ? focusMode : false,
+    darkMode,
+    themeToggleLabel:
+      themeMode === "dark"
+        ? lang === "es"
+          ? "Cambiar a modo automático"
+          : "Switch to auto mode"
+        : lang === "es"
+        ? "Cambiar a modo oscuro"
+        : "Toggle dark mode",
+    onToggleTheme: handleToggleTheme,
     reduceMotion: prefersReducedMotion,
   } as const;
   const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -403,11 +448,33 @@ export default function App() {
     setAutoPlayMood(mood);
   };
 
+  const handleStartPomodoroFromQuote = () => {
+    let mood: QuoteCategory | null = null;
+    if (current?.category) {
+      mood = current.category;
+    } else if (category !== "all") {
+      mood = category as QuoteCategory;
+    } else if (filters[0]) {
+      mood = filters[0].id;
+    }
+    if (mood) {
+      handleSelectTrackMood(mood);
+    }
+    setView("pomodoro");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handlePlanCta = () => {
     if (!planActionUrl) return;
     if (typeof window === "undefined") return;
     window.open(planActionUrl, "_blank", "noopener,noreferrer");
   };
+
+  function handleToggleTheme() {
+    setThemeMode((current) => (current === "dark" ? "auto" : "dark"));
+  }
 
   useEffect(() => {
     if (!favoritesOpen) return;
@@ -740,7 +807,30 @@ export default function App() {
   if (view === "pomodoro") {
     return (
       <ZenShell {...shellProps}>
-        <PomodoroZen lang={lang} reduceMotion={prefersReducedMotion} />
+        <section className="mt-12 grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+          <PomodoroZen lang={lang} reduceMotion={prefersReducedMotion} />
+          <motion.div
+            layout
+            initial={primaryQuoteInitial}
+            animate={{ opacity: 1, y: 0 }}
+            transition={cardTransition}
+            className="flex min-w-0"
+          >
+            <MusicPlayer
+              copy={t.music}
+              trackMood={selectedTrackMood}
+              autoPlayMood={autoPlayMood}
+              onAutoPlayConsumed={() => setAutoPlayMood(null)}
+              moodOptions={filters}
+              onSelectMood={handleSelectTrackMood}
+            />
+          </motion.div>
+          {shouldRenderAds && (
+            <div className="lg:col-span-2">
+              <AdBox ariaLabel={t.ad.ariaLabel} />
+            </div>
+          )}
+        </section>
       </ZenShell>
     );
   }
@@ -848,6 +938,13 @@ export default function App() {
                 className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-teal-700 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t.quotes.newQuote}
+              </button>
+              <button
+                type="button"
+                onClick={handleStartPomodoroFromQuote}
+                className="inline-flex items-center justify-center rounded-full border border-teal-300/70 bg-white/75 px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 shadow-sm transition-all duration-200 hover:bg-white/95 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95"
+              >
+                {t.quotes.pomodoroCta}
               </button>
             </div>
 

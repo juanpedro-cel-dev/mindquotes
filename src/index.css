@@ -1,6 +1,10 @@
 @import "tailwindcss";
 /* Aquí podrás añadir CSS normal si hace falta, sin @apply */
 /* 🌿 Ajustes MindQuotes visual */
+
+body {
+  overflow-x: hidden;
+}
 .card-zen {
   @apply shadow-[0_4px_20px_rgb(0_0_0_/_0.04)] rounded-[2rem] border border-white/50 bg-white/60 backdrop-blur-2xl p-10;
   transition: all 0.4s ease;

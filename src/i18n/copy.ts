@@ -114,6 +114,7 @@ type QuotesCopy = {
     accept: string;
     decline: string;
   };
+  pomodoroCta: string;
 };
 
 type AdCopy = {
@@ -297,6 +298,7 @@ export const copy: Record<Lang, AppCopy> = {
         accept: "Activar música",
         decline: "No ahora",
       },
+      pomodoroCta: "Iniciar Pomodoro zen con este mood",
     },
     ad: {
       ariaLabel: "Espacio promocional MindQuotes",
@@ -472,6 +474,7 @@ export const copy: Record<Lang, AppCopy> = {
         accept: "Play ambience",
         decline: "Not now",
       },
+      pomodoroCta: "Start a zen Pomodoro with this mood",
     },
     ad: {
       ariaLabel: "MindQuotes promotional space",

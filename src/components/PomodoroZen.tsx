@@ -18,6 +18,16 @@ const PRESETS: Record<Exclude<PresetId, "custom">, PomodoroConfig> = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const STORAGE_KEY = "mq_pomodoro_settings_v1";
+
+type StoredPomodoroSettings = {
+  preset: PresetId;
+  customFocus: number;
+  customBreak: number;
+  date?: string;
+  sessionsToday?: number;
+};
+
 type PomodoroZenProps = {
   lang: "es" | "en";
   reduceMotion?: boolean;
@@ -33,6 +43,7 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
   const [remainingSeconds, setRemainingSeconds] = useState(config.focusMinutes * 60);
   const [lastMessage, setLastMessage] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [completedToday, setCompletedToday] = useState(0);
 
   const texts = useMemo(
     () =>
@@ -81,6 +92,35 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
   const progress = 1 - remainingSeconds / safeTotalSeconds;
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as StoredPomodoroSettings;
+      if (!parsed || typeof parsed !== "object") return;
+      if (
+        parsed.preset === "25-5" ||
+        parsed.preset === "50-10" ||
+        parsed.preset === "custom"
+      ) {
+        setPreset(parsed.preset);
+      }
+      if (typeof parsed.customFocus === "number") {
+        setCustomFocus(clamp(parsed.customFocus, 5, 120));
+      }
+      if (typeof parsed.customBreak === "number") {
+        setCustomBreak(clamp(parsed.customBreak, 3, 60));
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      if (parsed.date === today && typeof parsed.sessionsToday === "number") {
+        setCompletedToday(Math.max(0, parsed.sessionsToday));
+      }
+    } catch {
+      // Ignorar errores de parseo para mantener la calma :)
+    }
+  }, []);
+
+  useEffect(() => {
     if (preset !== "custom") {
       const presetConfig = PRESETS[preset as Exclude<PresetId, "custom">];
       setConfig(presetConfig);
@@ -101,6 +141,23 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
   }, [preset, customBreak, customFocus]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const today = new Date().toISOString().slice(0, 10);
+    const data: StoredPomodoroSettings = {
+      preset,
+      customFocus,
+      customBreak,
+      date: today,
+      sessionsToday: completedToday,
+    };
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // Si falla el almacenamiento, simplemente seguimos sin persistencia
+    }
+  }, [completedToday, customBreak, customFocus, preset]);
+
+  useEffect(() => {
     if (!isRunning) return;
     const tick = () => {
       setRemainingSeconds((current) => {
@@ -119,6 +176,7 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
     setIsRunning(false);
     if (phase === "focus") {
       setLastMessage(texts.finishedFocus);
+      setCompletedToday((current) => current + 1);
       setPhase("break");
       setRemainingSeconds(config.breakMinutes * 60 || 60 * 5);
     } else {
@@ -170,6 +228,15 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
 
   const presetButtonBase =
     "inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:translate-y-[1px]";
+
+  const sessionsSummary =
+    lang === "es"
+      ? completedToday === 1
+        ? "Has completado 1 sesión de enfoque hoy."
+        : `Has completado ${completedToday} sesiones de enfoque hoy.`
+      : completedToday === 1
+      ? "You’ve completed 1 focus session today."
+      : `You’ve completed ${completedToday} focus sessions today.`;
 
   return (
     <motion.section
@@ -324,9 +391,11 @@ export default function PomodoroZen({ lang, reduceMotion = false }: PomodoroZenP
               {lastMessage}
             </div>
           )}
+          <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-teal-700/75">
+            {sessionsSummary}
+          </p>
         </div>
       </div>
     </motion.section>
   );
 }
-
