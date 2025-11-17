@@ -193,12 +193,11 @@ export default function App() {
     const computeDark = () => {
       if (themeMode === "dark") return true;
       if (themeMode === "light") return false;
+      // Modo automático: solo depende de la hora local del usuario.
       const hour = new Date().getHours();
-      const isNight = hour >= 20 || hour < 7;
-      const prefersDark =
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-      return prefersDark || isNight;
+      // Consideramos noche de 22:00 a 5:59 hora local (más realista para España).
+      const isNight = hour >= 22 || hour < 6;
+      return isNight;
     };
     setDarkMode(computeDark());
   }, [themeMode]);
@@ -374,6 +373,8 @@ export default function App() {
         : lang === "es"
         ? "Modo automático (día/noche)"
         : "Auto mode (day/night)",
+    themeIcon:
+      themeMode === "auto" ? "A" : themeMode === "dark" ? "☾" : "☀︎",
     onToggleTheme: handleToggleTheme,
     reduceMotion: prefersReducedMotion,
   } as const;

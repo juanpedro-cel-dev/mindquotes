@@ -2,7 +2,10 @@
 /* Aquí podrás añadir CSS normal si hace falta, sin @apply */
 /* 🌿 Ajustes MindQuotes visual */
 
+html,
 body {
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
 }
 .card-zen {

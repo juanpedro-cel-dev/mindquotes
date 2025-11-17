@@ -27,6 +27,7 @@ type ZenShellProps = {
   focusMode?: boolean;
   darkMode?: boolean;
   themeToggleLabel?: string;
+  themeIcon?: string;
   onToggleTheme?: () => void;
   reduceMotion?: boolean;
   children?: ReactNode;
@@ -48,6 +49,7 @@ export default function ZenShell({
   focusMode = false,
   darkMode = false,
   themeToggleLabel,
+  themeIcon,
   onToggleTheme,
   reduceMotion = false,
   children,
@@ -77,7 +79,7 @@ export default function ZenShell({
   const rootClass = [
     "min-h-screen w-full",
     darkMode
-      ? "bg-slate-950 text-slate-50"
+      ? "bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-slate-50"
       : "bg-[radial-gradient(100%_100%_at_50%_0%,#e6fff3_0%,#d9f7ee_35%,#c7efe7_65%,#b7e7df_100%)] text-teal-950",
   ].join(" ");
 
@@ -136,7 +138,7 @@ export default function ZenShell({
                 title={themeToggleLabel}
                 aria-label={themeToggleLabel}
               >
-                {darkMode ? "☀︎" : "☾"}
+                {themeIcon ?? (darkMode ? "☀︎" : "☾")}
               </button>
             )}
             <button
