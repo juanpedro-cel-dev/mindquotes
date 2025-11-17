@@ -6,6 +6,11 @@ type LanguageControl = {
   aria: string;
 };
 
+type FooterLink = {
+  id: string;
+  label: string;
+};
+
 type ZenShellProps = {
   title?: string;
   subtitle: string;
@@ -15,6 +20,8 @@ type ZenShellProps = {
   language: LanguageControl;
   onToggleLanguage: () => void;
   footerNote: string;
+  footerLinks?: readonly FooterLink[];
+  onFooterNavigate?: (id: string) => void;
   navAria: string;
   logoAlt: string;
   focusMode?: boolean;
@@ -31,6 +38,8 @@ export default function ZenShell({
   language,
   onToggleLanguage,
   footerNote,
+  footerLinks,
+  onFooterNavigate,
   navAria,
   logoAlt,
   focusMode = false,
@@ -123,8 +132,29 @@ export default function ZenShell({
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-white/60 py-6 text-center text-xs text-teal-800/70">
-          <p>© {new Date().getFullYear()} {footerNote}</p>
+        <footer className="border-t border-white/60 py-6 text-xs text-teal-800/70">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row">
+            <p className="text-center sm:text-left">
+              © {new Date().getFullYear()} {footerNote}
+            </p>
+            {footerLinks && footerLinks.length > 0 && (
+              <nav
+                aria-label="Legal and contact links"
+                className="flex flex-wrap items-center justify-center gap-3"
+              >
+                {footerLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    type="button"
+                    onClick={() => onFooterNavigate?.(link.id)}
+                    className="text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-700/80 hover:text-teal-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-full px-3 py-1 bg-white/40 hover:bg-white/70 transition-colors"
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </nav>
+            )}
+          </div>
         </footer>
       </div>
     </div>

@@ -8,7 +8,7 @@ export type LanguageCopy = {
   aria: string;
 };
 
-type ShellNavId = "quotes" | "favorites" | "journal" | "feedback";
+type ShellNavId = "quotes" | "favorites" | "journal" | "feedback" | "pomodoro";
 
 type ShellNavItem = {
   id: ShellNavId;
@@ -193,6 +193,7 @@ export const copy: Record<Lang, AppCopy> = {
         { id: "favorites", label: "Favoritos" },
         { id: "journal", label: "Diario" },
         { id: "feedback", label: "Buzón de ideas" },
+        { id: "pomodoro", label: "Pomodoro zen" },
       ],
       language: {
         button: "Idioma: ES",
@@ -367,6 +368,7 @@ export const copy: Record<Lang, AppCopy> = {
         { id: "favorites", label: "Favorites" },
         { id: "journal", label: "Journal" },
         { id: "feedback", label: "Feedback" },
+        { id: "pomodoro", label: "Pomodoro" },
       ],
       language: {
         button: "Language: EN",

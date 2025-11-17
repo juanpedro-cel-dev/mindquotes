@@ -7,6 +7,10 @@ import MusicPlayer from "./components/MusicPlayer";
 import FeedbackPage from "./components/FeedbackPage";
 import FavoritesPage from "./components/FavoritesPage";
 import JournalPage from "./components/JournalPage";
+import PomodoroZen from "./components/PomodoroZen";
+import PrivacyPage from "./components/PrivacyPage";
+import TermsPage from "./components/TermsPage";
+import ContactPage from "./components/ContactPage";
 import {
   useUser,
   createFavoriteId,
@@ -21,6 +25,16 @@ import quotesEN from "./data/quotes.en.json";
 
 type Quote = { text: string; author?: string; category: QuoteCategory };
 type QuoteFilter = "all" | QuoteCategory;
+
+type ViewId =
+  | "quotes"
+  | "favorites"
+  | "journal"
+  | "feedback"
+  | "pomodoro"
+  | "privacy"
+  | "terms"
+  | "contact";
 
 const CATEGORY_STORAGE_KEY = "mq_quote_category";
 const VALID_FILTERS: QuoteFilter[] = [
@@ -66,7 +80,7 @@ export default function App() {
     const saved = localStorage.getItem("mq_lang");
     return saved === "en" || saved === "es" ? (saved as Lang) : "es";
   });
-  const resolveViewFromHash = (hash: string): "quotes" | "favorites" | "journal" | "feedback" => {
+  const resolveViewFromHash = (hash: string): ViewId => {
     switch (hash) {
       case "#/favorites":
         return "favorites";
@@ -74,12 +88,20 @@ export default function App() {
         return "journal";
       case "#/feedback":
         return "feedback";
+      case "#/pomodoro":
+        return "pomodoro";
+      case "#/privacy":
+        return "privacy";
+      case "#/terms":
+        return "terms";
+      case "#/contact":
+        return "contact";
       default:
         return "quotes";
     }
   };
 
-  const [view, setView] = useState<"quotes" | "favorites" | "journal" | "feedback">(() => {
+  const [view, setView] = useState<ViewId>(() => {
     if (typeof window === "undefined") return "quotes";
     return resolveViewFromHash(window.location.hash);
   });
@@ -165,6 +187,14 @@ export default function App() {
         ? "#/journal"
         : view === "feedback"
         ? "#/feedback"
+        : view === "pomodoro"
+        ? "#/pomodoro"
+        : view === "privacy"
+        ? "#/privacy"
+        : view === "terms"
+        ? "#/terms"
+        : view === "contact"
+        ? "#/contact"
         : "#/";
     if (window.location.hash !== targetHash) {
       window.location.hash = targetHash;
@@ -250,7 +280,16 @@ export default function App() {
     });
   }, [filters]);
   const handleNavigate = (id: string) => {
-    const nextView = id === "favorites" || id === "journal" || id === "feedback" ? id : "quotes";
+    const nextView: ViewId =
+      id === "favorites" ||
+      id === "journal" ||
+      id === "feedback" ||
+      id === "pomodoro" ||
+      id === "privacy" ||
+      id === "terms" ||
+      id === "contact"
+        ? (id as ViewId)
+        : "quotes";
     setView(nextView);
     if (nextView !== "quotes") {
       setFavoritesOpen(false);
@@ -259,6 +298,21 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
+  const footerLinks = [
+    {
+      id: "privacy",
+      label: lang === "es" ? "Política de privacidad" : "Privacy policy",
+    },
+    {
+      id: "terms",
+      label: lang === "es" ? "Términos y condiciones" : "Terms",
+    },
+    {
+      id: "contact",
+      label: lang === "es" ? "Contacto" : "Contact",
+    },
+  ] as const;
+
   const shellProps = {
     subtitle: t.shell.subtitle,
     navItems,
@@ -267,6 +321,8 @@ export default function App() {
     language: t.shell.language,
     onToggleLanguage: toggleLang,
     footerNote: t.shell.footer,
+    footerLinks,
+    onFooterNavigate: handleNavigate,
     navAria: t.shell.navAria,
     logoAlt: t.shell.logoAlt,
     focusMode: view === "quotes" ? focusMode : false,
@@ -681,6 +737,38 @@ export default function App() {
     );
   }
 
+  if (view === "pomodoro") {
+    return (
+      <ZenShell {...shellProps}>
+        <PomodoroZen lang={lang} reduceMotion={prefersReducedMotion} />
+      </ZenShell>
+    );
+  }
+
+  if (view === "privacy") {
+    return (
+      <ZenShell {...shellProps}>
+        <PrivacyPage lang={lang} reduceMotion={prefersReducedMotion} />
+      </ZenShell>
+    );
+  }
+
+  if (view === "terms") {
+    return (
+      <ZenShell {...shellProps}>
+        <TermsPage lang={lang} reduceMotion={prefersReducedMotion} />
+      </ZenShell>
+    );
+  }
+
+  if (view === "contact") {
+    return (
+      <ZenShell {...shellProps}>
+        <ContactPage lang={lang} reduceMotion={prefersReducedMotion} />
+      </ZenShell>
+    );
+  }
+
   return (
     <ZenShell {...shellProps}>
       <section className="mt-12 grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,360px)_minmax(0,1.45fr)_minmax(0,0.95fr)] xl:grid-cols-[minmax(0,360px)_minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -695,76 +783,76 @@ export default function App() {
           <section className={quoteSectionClass}>
             <LogoZen alt={t.quotes.logoAlt} />
 
-              <p className="mt-2 max-w-prose text-sm text-teal-700/80 sm:text-base">
-                {t.quotes.tagline}
-              </p>
+            <p className="mt-2 max-w-prose text-sm text-teal-700/80 sm:text-base">
+              {t.quotes.tagline}
+            </p>
 
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-[11px] uppercase tracking-[0.24em] text-teal-600/80">
-                  {t.quotes.filterLabel}
-                </span>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {filterOptions.map(({ id, label }) => {
-                    const active = category === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setCategory(id)}
-                        aria-pressed={active}
-                        className={`inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 ${
-                          active
-                            ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
-                            : "border-teal-200/70 bg-white/60 text-teal-800 hover:bg-white/85 hover:border-teal-400/70"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.24em] text-teal-600/80">
+                {t.quotes.filterLabel}
+              </span>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {filterOptions.map(({ id, label }) => {
+                  const active = category === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setCategory(id)}
+                      aria-pressed={active}
+                      className={`inline-flex items-center justify-center rounded-full border px-4 py-1.5 text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 ${
+                        active
+                          ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
+                          : "border-teal-200/70 bg-white/60 text-teal-800 hover:bg-white/85 hover:border-teal-400/70"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              <motion.blockquote
-                key={current?.text ?? "empty"}
-                layout
-                aria-live="polite"
-                className={blockquoteClass}
+            <motion.blockquote
+              key={current?.text ?? "empty"}
+              layout
+              aria-live="polite"
+              className={blockquoteClass}
+            >
+              “{current?.text ?? t.quotes.empty}”
+            </motion.blockquote>
+
+            {current?.author && (
+              <p className="text-base text-teal-700/85">— {current.author}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={!user || !current}
+                aria-pressed={isCurrentFavorite}
+                className={`inline-flex items-center justify-center rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isCurrentFavorite
+                    ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
+                    : "border-teal-300/70 bg-white/70 text-teal-800 hover:bg-white/90"
+                }`}
+                title={!user ? t.quotes.saveLogin : undefined}
               >
-                “{current?.text ?? t.quotes.empty}”
-              </motion.blockquote>
+                {isCurrentFavorite ? t.quotes.saved : t.quotes.save}
+              </button>
+              <button
+                type="button"
+                onClick={nextQuote}
+                disabled={!hasQuotes}
+                className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-teal-700 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t.quotes.newQuote}
+              </button>
+            </div>
 
-              {current?.author && (
-                <p className="text-base text-teal-700/85">— {current.author}</p>
-              )}
-
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleToggleFavorite}
-                  disabled={!user || !current}
-                  aria-pressed={isCurrentFavorite}
-                  className={`inline-flex items-center justify-center rounded-full border px-5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isCurrentFavorite
-                      ? "border-teal-500/80 bg-teal-500/15 text-teal-900 shadow-inner shadow-teal-900/10"
-                      : "border-teal-300/70 bg-white/70 text-teal-800 hover:bg-white/90"
-                  }`}
-                  title={!user ? t.quotes.saveLogin : undefined}
-                >
-                  {isCurrentFavorite ? t.quotes.saved : t.quotes.save}
-                </button>
-                <button
-                  type="button"
-                  onClick={nextQuote}
-                  disabled={!hasQuotes}
-                  className="inline-flex items-center justify-center rounded-full bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-teal-700 active:scale-95 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {t.quotes.newQuote}
-                </button>
-              </div>
-
-              <p className="mt-5 text-xs text-teal-700/70">{t.quotes.beta}</p>
-            </section>
+            <p className="mt-5 text-xs text-teal-700/70">{t.quotes.beta}</p>
+          </section>
         </motion.div>
 
         <motion.div
@@ -789,6 +877,17 @@ export default function App() {
             <AdBox ariaLabel={t.ad.ariaLabel} />
           </div>
         )}
+      </section>
+
+      <section className="mt-10 max-w-3xl mx-auto rounded-3xl border border-white/70 bg-white/70 px-6 py-6 shadow-[0_12px_48px_rgba(20,73,63,0.12)]">
+        <h2 className="text-lg font-semibold text-teal-950 sm:text-xl">
+          {lang === "es" ? "Sobre MindQuotes" : "About MindQuotes"}
+        </h2>
+        <p className="mt-3 text-sm text-teal-800/85 sm:text-base">
+          {lang === "es"
+            ? "MindQuotes es un espacio digital creado para inspirar calma, enfoque y positividad a través de frases seleccionadas con cariño. Un refugio de serenidad en la era del ruido."
+            : "MindQuotes is a digital space created to inspire calm, focus, and positivity through carefully selected quotes. A small refuge of serenity in the age of constant noise."}
+        </p>
       </section>
 
       {favoritesOpen && user && (
