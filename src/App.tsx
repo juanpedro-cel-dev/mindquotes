@@ -365,11 +365,15 @@ export default function App() {
     themeToggleLabel:
       themeMode === "dark"
         ? lang === "es"
-          ? "Cambiar a modo automático"
-          : "Switch to auto mode"
+          ? "Modo oscuro fijo"
+          : "Dark mode (fixed)"
+        : themeMode === "light"
+        ? lang === "es"
+          ? "Modo claro fijo"
+          : "Light mode (fixed)"
         : lang === "es"
-        ? "Cambiar a modo oscuro"
-        : "Toggle dark mode",
+        ? "Modo automático (día/noche)"
+        : "Auto mode (day/night)",
     onToggleTheme: handleToggleTheme,
     reduceMotion: prefersReducedMotion,
   } as const;
@@ -473,7 +477,9 @@ export default function App() {
   };
 
   function handleToggleTheme() {
-    setThemeMode((current) => (current === "dark" ? "auto" : "dark"));
+    setThemeMode((current) =>
+      current === "auto" ? "dark" : current === "dark" ? "light" : "auto"
+    );
   }
 
   useEffect(() => {
